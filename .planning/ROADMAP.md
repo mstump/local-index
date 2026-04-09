@@ -48,12 +48,12 @@ Plans:
   3. Re-running index on an unchanged vault skips all chunks (SHA-256 content hash match); only changed chunks are re-embedded
   4. When the configured embedding model differs from what is stored in the database, the tool warns and requires `--force-reindex`
   5. Transient API errors trigger exponential backoff with jitter; partial failures do not lose already-indexed data
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
-- [ ] 02-03: TBD
+- [ ] 02-01-PLAN.md — Dependencies, credentials, Embedder trait, VoyageEmbedder with retry
+- [ ] 02-02-PLAN.md — LanceDB ChunkStore with schema, upsert, hash query, model guard
+- [ ] 02-03-PLAN.md — Wire index command to embed+store pipeline with progress reporting
 
 ### Phase 3: Search
 **Goal**: Operator can search their indexed vault with semantic, full-text, or hybrid queries and receive structured results
@@ -126,8 +126,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & File Processing | 0/3 | Not started | - |
-| 2. Storage & Embedding Pipeline | 0/3 | Not started | - |
+| 1. Foundation & File Processing | 3/3 | Complete | 2026-04-09 |
+| 2. Storage & Embedding Pipeline | 0/3 | Planning complete | - |
 | 3. Search | 0/3 | Not started | - |
 | 4. Daemon Mode & Observability | 0/3 | Not started | - |
 | 5. Web Dashboard | 0/3 | Not started | - |
