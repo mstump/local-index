@@ -36,7 +36,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01: TBD
 - [x] 01-02: TBD
-- [ ] 01-03: TBD
+- [x] 01-03: TBD
 
 ### Phase 2: Storage & Embedding Pipeline
 **Goal**: Operator can index a vault end-to-end with embeddings stored in LanceDB, with incremental re-indexing on unchanged content
