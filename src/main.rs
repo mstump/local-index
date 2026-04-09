@@ -2,6 +2,8 @@ mod cli;
 
 use anyhow::Result;
 use clap::Parser;
+use local_index::pipeline::chunker::chunk_markdown;
+use local_index::pipeline::walker::discover_markdown_files;
 use tracing_subscriber::{fmt, EnvFilter};
 
 fn init_logging(log_level: &str) {
@@ -31,12 +33,77 @@ fn main() -> Result<()> {
 
     match &cli.command {
         cli::Command::Index { path, force_reindex } => {
+            let vault_path = path.canonicalize().map_err(|e| {
+                anyhow::anyhow!("Invalid vault path '{}': {}", path.display(), e)
+            })?;
+
             tracing::info!(
-                path = %path.display(),
+                path = %vault_path.display(),
                 force_reindex = force_reindex,
-                "index command invoked"
+                "starting index of vault"
             );
-            tracing::warn!("index command not yet implemented");
+
+            let files = discover_markdown_files(&vault_path);
+
+            if files.is_empty() {
+                tracing::warn!("no markdown files found in vault");
+                println!("Indexed 0 files, 0 chunks");
+                return Ok(());
+            }
+
+            let mut total_chunks: usize = 0;
+            let mut file_count: usize = 0;
+            let mut all_chunks = Vec::new();
+
+            for file_path in &files {
+                let content = match std::fs::read_to_string(file_path) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        tracing::warn!(
+                            file = %file_path.display(),
+                            error = %e,
+                            "failed to process file"
+                        );
+                        continue;
+                    }
+                };
+
+                let relative_path = file_path
+                    .strip_prefix(&vault_path)
+                    .unwrap_or(file_path);
+
+                match chunk_markdown(&content, relative_path) {
+                    Ok(chunked_file) => {
+                        tracing::info!(
+                            file = %relative_path.display(),
+                            chunks = chunked_file.chunks.len(),
+                            "chunked file"
+                        );
+                        total_chunks += chunked_file.chunks.len();
+                        file_count += 1;
+                        all_chunks.extend(chunked_file.chunks);
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            file = %relative_path.display(),
+                            error = %e,
+                            "failed to process file"
+                        );
+                    }
+                }
+            }
+
+            println!("Indexed {} files, {} chunks", file_count, total_chunks);
+
+            for chunk in &all_chunks {
+                println!("{}", serde_json::to_string(chunk)?);
+            }
+
+            tracing::info!(
+                files = file_count,
+                chunks = total_chunks,
+                "indexing complete"
+            );
         }
         cli::Command::Daemon { path, bind } => {
             tracing::info!(
