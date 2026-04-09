@@ -17,6 +17,7 @@ Fast, accurate semantic search over a local markdown vault that Claude can query
 ### Active
 
 **Indexing**
+
 - [ ] Watch a directory tree recursively for file create/modify/move/delete events
 - [ ] Chunk markdown files by heading (each heading section = one embedding unit)
 - [ ] Embed chunks via Anthropic embeddings API
@@ -25,21 +26,25 @@ Fast, accurate semantic search over a local markdown vault that Claude can query
 - [ ] Incremental updates: only re-embed chunks that changed, skip unchanged
 
 **Search**
+
 - [ ] Full-text search over chunk content
 - [ ] Semantic (vector) search over embeddings
 - [ ] Structured JSON results: chunk text, file path (vault-relative), similarity score, surrounding context lines
 - [ ] CLI command: `local-index search "<query>"` with configurable result count and score threshold
 
 **Credentials & Config**
+
 - [ ] Credential resolution: `ANTHROPIC_API_KEY` env var first, fall back to `~/.claude/` credential store
 - [ ] All settings via CLI flags (clap + derive), `.env` file, and environment variables — no config file UI
 
 **Observability**
+
 - [ ] Prometheus metrics endpoint (`/metrics`) on the HTTP server
 - [ ] HDR histograms (or equivalent) for all latency-sensitive operations: Anthropic API calls, file indexing, search queries, WebUI requests
 - [ ] `tracing` crate for structured logging throughout
 
 **WebUI**
+
 - [ ] Search UI: query input, ranked results with snippets and file paths
 - [ ] Index browser: list indexed files, per-file chunk count, last-indexed timestamp
 - [ ] Index status: total chunks, total files, last full-index time, pending queue depth
@@ -48,10 +53,12 @@ Fast, accurate semantic search over a local markdown vault that Claude can query
 - [ ] Served on configurable port (default: 3000) by the same process
 
 **Skills / Claude Integration**
+
 - [ ] Claude Code skill files (`.claude/skills/`) for: search, re-index, status
 - [ ] Documented shell wrapper scripts for the same operations
 
 **CLI**
+
 - [ ] `clap` with derive macros for all commands and flags
 - [ ] Subcommands: `index`, `daemon`, `search`, `status`, `serve`
 
@@ -84,21 +91,22 @@ Fast, accurate semantic search over a local markdown vault that Claude can query
 
 ## Key Decisions
 
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| Chunk by heading | More precise search results; Obsidian notes are heading-structured | — Pending |
-| Anthropic API for embeddings | Reuses existing auth; avoids local model complexity in v1 | — Pending |
-| Env var preferred for credentials | Explicit over implicit; `~/.claude/` fallback for dev convenience | — Pending |
-| Single binary, embedded LanceDB | Zero deployment friction; no separate database process | — Pending |
-| Both daemon + one-shot modes | Daemon for real-time watching; one-shot for CI/manual re-index | — Pending |
-| Prometheus + HDR histograms | Standard observability; histograms capture tail latency for API calls | — Pending |
-| Claude Code skills + shell wrappers | Skills for Claude integration; shell wrappers for humans and scripts | — Pending |
+| Decision                            | Rationale                                                             | Outcome   |
+|-------------------------------------|-----------------------------------------------------------------------|-----------|
+| Chunk by heading                    | More precise search results; Obsidian notes are heading-structured    | — Pending |
+| Anthropic API for embeddings        | Reuses existing auth; avoids local model complexity in v1             | — Pending |
+| Env var preferred for credentials   | Explicit over implicit; `~/.claude/` fallback for dev convenience     | — Pending |
+| Single binary, embedded LanceDB     | Zero deployment friction; no separate database process                | — Pending |
+| Both daemon + one-shot modes        | Daemon for real-time watching; one-shot for CI/manual re-index        | — Pending |
+| Prometheus + HDR histograms         | Standard observability; histograms capture tail latency for API calls | — Pending |
+| Claude Code skills + shell wrappers | Skills for Claude integration; shell wrappers for humans and scripts  | — Pending |
 
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.
 
 **After each phase transition** (via `/gsd:transition`):
+
 1. Requirements invalidated? → Move to Out of Scope with reason
 2. Requirements validated? → Move to Validated with phase reference
 3. New requirements emerged? → Add to Active
@@ -106,6 +114,7 @@ This document evolves at phase transitions and milestone boundaries.
 5. "What This Is" still accurate? → Update if drifted
 
 **After each milestone** (via `/gsd:complete-milestone`):
+
 1. Full review of all sections
 2. Core Value check — still the right priority?
 3. Audit Out of Scope — reasons still valid?
