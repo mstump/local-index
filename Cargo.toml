@@ -1,0 +1,23 @@
+[package]
+name = "local-index"
+version = "0.1.0"
+edition = "2024"
+description = "A Rust daemon that watches a directory tree, chunks markdown files by heading, embeds via Anthropic API, and stores in LanceDB for semantic search"
+
+[dependencies]
+# CLI framework
+clap = { version = "4.5", features = ["derive", "env"] }
+
+# Async runtime
+tokio = { version = "1.40", features = ["full"] }
+
+# Logging / Tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Configuration
+dotenvy = "0.15"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
