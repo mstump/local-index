@@ -31,12 +31,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Each markdown file is chunked by heading with heading hierarchy preserved as breadcrumbs (e.g., `## Goals > ### Q1`)
   4. YAML frontmatter is stripped from chunk content but available as structured metadata (tags, aliases, dates)
   5. Log output is structured via `tracing` and controllable via `RUST_LOG` or `--log-level`
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
-- [ ] 01-03: TBD
+- [ ] 01-01-PLAN.md -- Project scaffold, CLI skeleton, logging, types, and error modules
+- [ ] 01-02-PLAN.md -- Directory walker and markdown chunker with frontmatter extraction
+- [ ] 01-03-PLAN.md -- Wire index command and integration tests
 
 ### Phase 2: Storage & Embedding Pipeline
 **Goal**: Operator can index a vault end-to-end with embeddings stored in LanceDB, with incremental re-indexing on unchanged content
@@ -126,7 +126,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & File Processing | 0/3 | Not started | - |
+| 1. Foundation & File Processing | 0/3 | Planning complete | - |
 | 2. Storage & Embedding Pipeline | 0/3 | Not started | - |
 | 3. Search | 0/3 | Not started | - |
 | 4. Daemon Mode & Observability | 0/3 | Not started | - |
