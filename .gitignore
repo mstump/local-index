@@ -22,3 +22,6 @@ target
 
 .claude/settings.local.json
 .claude/
+
+# Local environment — never commit secrets
+.env
