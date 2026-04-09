@@ -18,6 +18,22 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 # Configuration
 dotenvy = "0.15"
 
+# Markdown parsing
+pulldown-cmark = "0.13"
+
+# YAML frontmatter
+serde_yml = "0.0.12"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# File discovery
+walkdir = "2.5"
+
 # Error handling
 anyhow = "1.0"
 thiserror = "2.0"
+
+[dev-dependencies]
+tempfile = "3.0"
