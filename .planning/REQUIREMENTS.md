@@ -12,9 +12,9 @@
 - [ ] **CLI-03**: Operator can run `local-index search "<query>"` to perform a search and receive structured JSON results on stdout
 - [ ] **CLI-04**: Operator can run `local-index status` to see total indexed chunks/files, last index time, pending queue depth, and stale file count
 - [ ] **CLI-05**: Operator can run `local-index serve` to start the HTTP server (web dashboard + metrics) without the file watcher
-- [ ] **CLI-06**: All CLI commands and flags are implemented with `clap` derive macros and provide useful `--help` output with examples
-- [ ] **CLI-07**: All settings are configurable via CLI flags, `.env` file, and environment variables — no config file required for basic operation
-- [ ] **CLI-08**: CLI emits structured logging via the `tracing` crate; log level configurable via `RUST_LOG` or `--log-level` flag
+- [x] **CLI-06**: All CLI commands and flags are implemented with `clap` derive macros and provide useful `--help` output with examples
+- [x] **CLI-07**: All settings are configurable via CLI flags, `.env` file, and environment variables — no config file required for basic operation
+- [x] **CLI-08**: CLI emits structured logging via the `tracing` crate; log level configurable via `RUST_LOG` or `--log-level` flag
 
 ### Credentials & Auth
 
@@ -126,9 +126,9 @@
 | CLI-03 | Phase 3 | Pending |
 | CLI-04 | Phase 4 | Pending |
 | CLI-05 | Phase 5 | Pending |
-| CLI-06 | Phase 1 | Pending |
-| CLI-07 | Phase 1 | Pending |
-| CLI-08 | Phase 1 | Pending |
+| CLI-06 | Phase 1 | Complete |
+| CLI-07 | Phase 1 | Complete |
+| CLI-08 | Phase 1 | Complete |
 | CRED-01 | Phase 2 | Pending |
 | CRED-02 | Phase 2 | Pending |
 | CRED-03 | Phase 2 | Pending |
