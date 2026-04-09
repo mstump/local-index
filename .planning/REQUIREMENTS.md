@@ -24,9 +24,9 @@
 
 ### Indexing Pipeline
 
-- [ ] **INDX-01**: Indexer walks a directory tree recursively and processes all `.md` files; non-markdown files are skipped with a trace log
-- [ ] **INDX-02**: Markdown files are chunked by heading: each heading section (heading + its body text) becomes one embedding unit; heading hierarchy is preserved as a breadcrumb (e.g., `## Goals > ### Q1`)
-- [ ] **INDX-03**: YAML frontmatter is stripped from chunk text before embedding but stored as structured metadata (tags, aliases, dates) on each chunk record
+- [x] **INDX-01**: Indexer walks a directory tree recursively and processes all `.md` files; non-markdown files are skipped with a trace log
+- [x] **INDX-02**: Markdown files are chunked by heading: each heading section (heading + its body text) becomes one embedding unit; heading hierarchy is preserved as a breadcrumb (e.g., `## Goals > ### Q1`)
+- [x] **INDX-03**: YAML frontmatter is stripped from chunk text before embedding but stored as structured metadata (tags, aliases, dates) on each chunk record
 - [ ] **INDX-04**: Each chunk's content is SHA-256 hashed; on re-index, only chunks whose hash has changed are re-embedded (unchanged chunks are skipped)
 - [ ] **INDX-05**: Embeddings are stored in embedded LanceDB alongside chunk text, heading breadcrumb, file path (vault-relative), line range (start/end line numbers), frontmatter metadata, content hash, and embedding model ID
 - [ ] **INDX-06**: When the configured embedding model ID differs from the model ID stored in the database, the indexer warns the operator and requires `--force-reindex` to proceed
@@ -132,9 +132,9 @@
 | CRED-01 | Phase 2 | Pending |
 | CRED-02 | Phase 2 | Pending |
 | CRED-03 | Phase 2 | Pending |
-| INDX-01 | Phase 1 | Pending |
-| INDX-02 | Phase 1 | Pending |
-| INDX-03 | Phase 1 | Pending |
+| INDX-01 | Phase 1 | Complete |
+| INDX-02 | Phase 1 | Complete |
+| INDX-03 | Phase 1 | Complete |
 | INDX-04 | Phase 2 | Pending |
 | INDX-05 | Phase 2 | Pending |
 | INDX-06 | Phase 2 | Pending |
