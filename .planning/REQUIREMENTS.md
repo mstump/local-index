@@ -119,24 +119,61 @@
 
 ## Traceability
 
-Populated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CLI-01 through CLI-08 | TBD | Pending |
-| CRED-01 through CRED-03 | TBD | Pending |
-| INDX-01 through INDX-08 | TBD | Pending |
-| WTCH-01 through WTCH-04 | TBD | Pending |
-| SRCH-01 through SRCH-10 | TBD | Pending |
-| OBS-01 through OBS-04 | TBD | Pending |
-| WEB-01 through WEB-06 | TBD | Pending |
-| INTG-01 through INTG-04 | TBD | Pending |
+| CLI-01 | Phase 2 | Pending |
+| CLI-02 | Phase 4 | Pending |
+| CLI-03 | Phase 3 | Pending |
+| CLI-04 | Phase 4 | Pending |
+| CLI-05 | Phase 5 | Pending |
+| CLI-06 | Phase 1 | Pending |
+| CLI-07 | Phase 1 | Pending |
+| CLI-08 | Phase 1 | Pending |
+| CRED-01 | Phase 2 | Pending |
+| CRED-02 | Phase 2 | Pending |
+| CRED-03 | Phase 2 | Pending |
+| INDX-01 | Phase 1 | Pending |
+| INDX-02 | Phase 1 | Pending |
+| INDX-03 | Phase 1 | Pending |
+| INDX-04 | Phase 2 | Pending |
+| INDX-05 | Phase 2 | Pending |
+| INDX-06 | Phase 2 | Pending |
+| INDX-07 | Phase 2 | Pending |
+| INDX-08 | Phase 2 | Pending |
+| WTCH-01 | Phase 4 | Pending |
+| WTCH-02 | Phase 4 | Pending |
+| WTCH-03 | Phase 4 | Pending |
+| WTCH-04 | Phase 4 | Pending |
+| SRCH-01 | Phase 3 | Pending |
+| SRCH-02 | Phase 3 | Pending |
+| SRCH-03 | Phase 3 | Pending |
+| SRCH-04 | Phase 3 | Pending |
+| SRCH-05 | Phase 3 | Pending |
+| SRCH-06 | Phase 3 | Pending |
+| SRCH-07 | Phase 3 | Pending |
+| SRCH-08 | Phase 3 | Pending |
+| SRCH-09 | Phase 3 | Pending |
+| SRCH-10 | Phase 3 | Pending |
+| OBS-01 | Phase 4 | Pending |
+| OBS-02 | Phase 4 | Pending |
+| OBS-03 | Phase 4 | Pending |
+| OBS-04 | Phase 4 | Pending |
+| WEB-01 | Phase 5 | Pending |
+| WEB-02 | Phase 5 | Pending |
+| WEB-03 | Phase 5 | Pending |
+| WEB-04 | Phase 5 | Pending |
+| WEB-05 | Phase 5 | Pending |
+| WEB-06 | Phase 5 | Pending |
+| INTG-01 | Phase 6 | Pending |
+| INTG-02 | Phase 6 | Pending |
+| INTG-03 | Phase 6 | Pending |
+| INTG-04 | Phase 6 | Pending |
 
 **Coverage:**
 - v1 requirements: 45 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 45 ⚠️
+- Mapped to phases: 45
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-08*
-*Last updated: 2026-04-08 after initial definition*
+*Last updated: 2026-04-08 after roadmap creation*
