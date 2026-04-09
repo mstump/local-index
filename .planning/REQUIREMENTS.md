@@ -18,8 +18,8 @@
 
 ### Credentials & Auth
 
-- [ ] **CRED-01**: Credential resolution checks `ANTHROPIC_API_KEY` env var first, then falls back to parsing `~/.claude/` credential store
-- [ ] **CRED-02**: Embedding provider is configurable via an `Embedder` trait; v1 ships Voyage AI (via Anthropic key) and Google Gemini implementations
+- [ ] **CRED-01**: Credential resolution checks `VOYAGE_API_KEY` env var for the configured embedding provider (Voyage AI in v1). `~/.claude/` fallback is deferred — not applicable to Voyage AI credentials.
+- [ ] **CRED-02**: Embedding provider is configurable via an `Embedder` trait; v1 ships Voyage AI implementation. Google Gemini implementation is deferred to a future phase.
 - [ ] **CRED-03**: Startup fails with a clear error message if no valid credentials are found for the configured embedding provider
 
 ### Indexing Pipeline
@@ -67,7 +67,7 @@
 - [ ] **WEB-03**: Dashboard includes an index browser: list of all indexed files with per-file chunk count and last-indexed timestamp
 - [ ] **WEB-04**: Dashboard includes an index status view: total chunks, total files, last full-index time, pending queue depth, stale file count
 - [ ] **WEB-05**: Dashboard includes an embedding stats view: total embeddings, embedding model ID, estimated token usage (if available from API response)
-- [ ] **WEB-06**: Dashboard includes a read-only settings view: current config values, credential source (env var vs `~/.claude/`), active CLI flags
+- [ ] **WEB-06**: Dashboard includes a read-only settings view: current config values, credential source (env var), active CLI flags
 
 ### Claude Code Integration
 
@@ -176,4 +176,4 @@
 
 ---
 *Requirements defined: 2026-04-08*
-*Last updated: 2026-04-08 after roadmap creation*
+*Last updated: 2026-04-09 — CRED-01/CRED-02 updated to reflect Voyage AI (per D-04); WEB-06 updated to remove ~/.claude/ reference*
