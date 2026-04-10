@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Each markdown file is chunked using a smart size-based algorithm (≤3600 chars/chunk, 15% overlap, break points scored by semantic quality: h1=100, h2=90, h3/codeblock=80…blank=20, no splits inside code fences); heading hierarchy is preserved as a breadcrumb metadata field on each chunk (e.g., `## Goals > ### Q1`) — **Note: chunker rewritten in Phase 2 Plan 01 to use this algorithm**
   4. YAML frontmatter is stripped from chunk content but available as structured metadata (tags, aliases, dates)
   5. Log output is structured via `tracing` and controllable via `RUST_LOG` or `--log-level`
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [x] 01-01: TBD
@@ -88,12 +88,12 @@ Plans:
   3. Operator can run `local-index status` and see total chunks, files, last index time, pending queue depth, and stale file count
   4. A `/metrics` endpoint serves Prometheus-compatible metrics including HDR histograms for embedding latency, indexing throughput, search latency, and HTTP latency
   5. Graceful shutdown on SIGINT/SIGTERM completes in-flight work without data loss
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
-- [ ] 04-03: TBD
+- [ ] 04-01-PLAN.md — Dependencies, metrics foundation, Prometheus setup, HTTP router
+- [ ] 04-02-PLAN.md — Status command with ChunkStore aggregate queries
+- [ ] 04-03-PLAN.md — File watcher, event processor, graceful shutdown, daemon CLI wiring
 
 ### Phase 5: Web Dashboard
 **Goal**: Operator can browse and search their index through a web interface served by the same process
@@ -105,7 +105,7 @@ Plans:
   3. Dashboard index browser lists all indexed files with per-file chunk count and last-indexed timestamp
   4. Dashboard shows index status (total chunks/files, last index time, queue depth) and embedding stats (count, model, token usage)
   5. Dashboard shows a read-only settings view with current config values and credential source
-**Plans**: TBD
+**Plans**: 3 plans
 **UI hint**: yes
 
 Plans:
@@ -121,7 +121,7 @@ Plans:
   1. A `.claude/skills/search.md` skill file exists that enables Claude Code to invoke `local-index search` and parse JSON results
   2. Skill files for `reindex` and `status` exist and work correctly when invoked by Claude Code
   3. Shell wrapper scripts for search, reindex, and status are included in the repository and documented
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [ ] 06-01: TBD
