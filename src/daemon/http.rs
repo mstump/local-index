@@ -1,9 +1,24 @@
+use std::sync::Arc;
+
+use axum::routing::get;
 use axum::Router;
 use metrics_exporter_prometheus::PrometheusHandle;
 
 /// Create an axum Router with /metrics and /health endpoints.
-pub fn metrics_router(_handle: PrometheusHandle) -> Router {
-    todo!("implement metrics_router")
+pub fn metrics_router(handle: PrometheusHandle) -> Router {
+    let handle = Arc::new(handle);
+    Router::new()
+        .route(
+            "/metrics",
+            get({
+                let handle = Arc::clone(&handle);
+                move || {
+                    let rendered = handle.render();
+                    std::future::ready(rendered)
+                }
+            }),
+        )
+        .route("/health", get(|| async { "ok" }))
 }
 
 #[cfg(test)]
