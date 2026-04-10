@@ -437,22 +437,13 @@ async fn handle_event(
 | A4 | FTS index can be rebuilt after each batch of daemon events without excessive overhead | Pitfall 3 | For very frequent saves, FTS rebuild cost may be noticeable; may need throttling |
 | A5 | `DebouncedEvent` from notify-debouncer-full provides both old and new paths for rename events | Pitfall 6 / WTCH-02 | Need to verify exact rename event structure in debouncer 0.7 |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Schema for `indexed_at` timestamp**
-   - What we know: Current LanceDB schema has no per-file timestamp field. CLI-04 requires "last index time" and "stale file count."
-   - What's unclear: Should we add an `indexed_at` column to the chunks table, or maintain a separate file-level metadata table?
-   - Recommendation: Add a simple metadata/files table in LanceDB (file_path, last_indexed_at, mtime_at_index) to track per-file state. This also enables "stale file" detection (disk mtime > index mtime).
+1. **Schema for `indexed_at` timestamp** — RESOLVED: Deferred. Plan 04-02 shows `last_index_time` as `null`/`unknown` since LanceDB schema has no `indexed_at` column yet. Adding the metadata table is deferred to a future phase when stale file detection is required.
 
-2. **Pending queue depth when daemon is not running**
-   - What we know: CLI-04 requires "pending queue depth" in status output.
-   - What's unclear: When daemon is not running, there is no queue. Should status show 0 or N/A?
-   - Recommendation: Show 0 with a note "(daemon not running)" when status is run standalone.
+2. **Pending queue depth when daemon is not running** — RESOLVED: Show `0` with a `(daemon not running)` note. Plan 04-02 Task 2 status command outputs `0` for queue depth when run standalone.
 
-3. **Batch vs. immediate processing of file events**
-   - What we know: The debouncer coalesces events within its window. But should the processor handle them one-at-a-time or batch?
-   - What's unclear: Optimal batch size for embedding API calls.
-   - Recommendation: Collect events from channel for up to 1 second (or until channel is empty), then process as a batch. This amortizes FTS rebuild and allows batch embedding calls.
+3. **Batch vs. immediate processing of file events** — RESOLVED: Process events per channel `recv_many` batch as received from the debouncer. Plan 04-03 Task 1 uses `channel.recv_many()` to collect available events and processes them together, amortizing FTS index rebuilds.
 
 ## Environment Availability
 
