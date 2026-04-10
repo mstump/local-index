@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use arrow_array::{
@@ -291,6 +292,54 @@ impl ChunkStore {
         )))
     }
 
+    /// Count total rows (chunks) in the table.
+    pub async fn count_total_chunks(&self) -> Result<usize, LocalIndexError> {
+        self.table
+            .count_rows(None)
+            .await
+            .map_err(|e| LocalIndexError::Database(e.to_string()))
+    }
+
+    /// Count distinct file paths stored in the table.
+    pub async fn count_distinct_files(&self) -> Result<usize, LocalIndexError> {
+        let paths = self.get_all_file_paths().await?;
+        Ok(paths.len())
+    }
+
+    /// Get all distinct file paths stored in the table.
+    pub async fn get_all_file_paths(&self) -> Result<Vec<String>, LocalIndexError> {
+        let batches: Vec<RecordBatch> = self
+            .table
+            .query()
+            .select(lancedb::query::Select::Columns(vec![
+                "file_path".to_string(),
+            ]))
+            .execute()
+            .await
+            .map_err(|e| LocalIndexError::Database(e.to_string()))?
+            .try_collect()
+            .await
+            .map_err(|e| LocalIndexError::Database(e.to_string()))?;
+
+        let mut unique_paths = HashSet::new();
+        for batch in &batches {
+            let col = batch
+                .column_by_name("file_path")
+                .expect("file_path column must exist");
+            let string_array = col
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .expect("file_path must be StringArray");
+            for i in 0..string_array.len() {
+                if !string_array.is_null(i) {
+                    unique_paths.insert(string_array.value(i).to_string());
+                }
+            }
+        }
+
+        Ok(unique_paths.into_iter().collect())
+    }
+
     /// Expose the underlying LanceDB table for search queries.
     pub fn table(&self) -> &lancedb::Table {
         &self.table
@@ -537,6 +586,64 @@ mod tests {
             hash1, hash2,
             "different breadcrumb should produce different hash"
         );
+    }
+
+    #[tokio::test]
+    async fn test_count_total_chunks_empty() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db_path = tmp.path().to_str().unwrap();
+        let store = ChunkStore::open(db_path).await.unwrap();
+
+        let count = store.count_total_chunks().await.unwrap();
+        assert_eq!(count, 0, "empty store should have 0 chunks");
+    }
+
+    #[tokio::test]
+    async fn test_count_total_chunks_after_store() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db_path = tmp.path().to_str().unwrap();
+        let store = ChunkStore::open(db_path).await.unwrap();
+
+        let chunks = vec![
+            make_test_chunk("a.md", "body1", "# H1"),
+            make_test_chunk("a.md", "body2", "# H2"),
+            make_test_chunk("b.md", "body3", "# H3"),
+        ];
+        let embs = vec![make_test_embedding(), make_test_embedding(), make_test_embedding()];
+        let hashes: Vec<String> = chunks.iter().map(|c| compute_content_hash(c)).collect();
+        store.store_chunks(&chunks, &embs, &hashes, "voyage-3.5").await.unwrap();
+
+        let count = store.count_total_chunks().await.unwrap();
+        assert_eq!(count, 3, "should have 3 chunks");
+    }
+
+    #[tokio::test]
+    async fn test_count_distinct_files_after_store() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db_path = tmp.path().to_str().unwrap();
+        let store = ChunkStore::open(db_path).await.unwrap();
+
+        let chunks = vec![
+            make_test_chunk("a.md", "body1", "# H1"),
+            make_test_chunk("a.md", "body2", "# H2"),
+            make_test_chunk("b.md", "body3", "# H3"),
+        ];
+        let embs = vec![make_test_embedding(), make_test_embedding(), make_test_embedding()];
+        let hashes: Vec<String> = chunks.iter().map(|c| compute_content_hash(c)).collect();
+        store.store_chunks(&chunks, &embs, &hashes, "voyage-3.5").await.unwrap();
+
+        let count = store.count_distinct_files().await.unwrap();
+        assert_eq!(count, 2, "should have 2 distinct files");
+    }
+
+    #[tokio::test]
+    async fn test_count_distinct_files_empty() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db_path = tmp.path().to_str().unwrap();
+        let store = ChunkStore::open(db_path).await.unwrap();
+
+        let count = store.count_distinct_files().await.unwrap();
+        assert_eq!(count, 0, "empty store should have 0 distinct files");
     }
 
     #[test]
