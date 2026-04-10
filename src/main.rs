@@ -336,12 +336,24 @@ async fn main() -> Result<()> {
             }
         }
         cli::Command::Daemon { path, bind } => {
+            let vault_path = path.canonicalize().map_err(|e| {
+                anyhow::anyhow!("Invalid vault path '{}': {}", path.display(), e)
+            })?;
+
+            let data_dir = cli
+                .data_dir
+                .clone()
+                .unwrap_or_else(|| vault_path.join(".local-index"));
+            let db_path = data_dir.to_string_lossy().to_string();
+
             tracing::info!(
-                path = %path.display(),
+                path = %vault_path.display(),
                 bind = %bind,
-                "daemon command invoked"
+                data_dir = %db_path,
+                "starting daemon"
             );
-            tracing::warn!("daemon command not yet implemented");
+
+            local_index::daemon::run_daemon(vault_path, bind.clone(), db_path).await?;
         }
         cli::Command::Search {
             query,
