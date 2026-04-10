@@ -44,7 +44,7 @@ created: 2026-04-10
 | 3-02-03 | 02 | 1 | SRCH-05, SRCH-06 | unit | `cargo test search::tests` | ❌ W0 | ⬜ pending |
 | 3-02-04 | 02 | 1 | SRCH-07, SRCH-08 | integration | `cargo test --test search_integration` | ❌ W0 | ⬜ pending |
 | 3-02-05 | 02 | 1 | SRCH-10 | integration | `cargo test --test search_integration` | ❌ W0 | ⬜ pending |
-| 3-03-01 | 03 | 2 | CLI-03 | integration | `cargo test --test cli_integration` | ❌ W0 | ⬜ pending |
+| 3-02-06 | 02 | 2 | CLI-03 | integration | `cargo test --test search_integration` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
