@@ -73,7 +73,7 @@ metrics = "0.24"
 metrics-exporter-prometheus = "0.16"
 
 # Shutdown coordination
-tokio-util = "0.7"
+tokio-util = { version = "0.7", features = ["rt"] }
 
 # Time for status command
 chrono = { version = "0.4", features = ["serde"] }
