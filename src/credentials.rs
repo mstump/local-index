@@ -18,10 +18,13 @@ pub fn resolve_voyage_key() -> Result<String, LocalIndexError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_resolve_voyage_key_set() {
-        // SAFETY: Test-only, single-threaded test runner context.
+        let _guard = ENV_MUTEX.lock().unwrap();
         let key = "test-voyage-key-12345";
         unsafe { std::env::set_var("VOYAGE_API_KEY", key) };
         let result = resolve_voyage_key();
@@ -32,7 +35,7 @@ mod tests {
 
     #[test]
     fn test_resolve_voyage_key_unset() {
-        // SAFETY: Test-only, single-threaded test runner context.
+        let _guard = ENV_MUTEX.lock().unwrap();
         unsafe { std::env::remove_var("VOYAGE_API_KEY") };
         let result = resolve_voyage_key();
         assert!(result.is_err());
