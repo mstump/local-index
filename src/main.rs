@@ -417,7 +417,53 @@ async fn main() -> Result<()> {
         }
         cli::Command::Status => {
             tracing::info!("status command invoked");
-            tracing::warn!("status command not yet implemented");
+
+            // Resolve data directory (same pattern as search command)
+            let data_dir = cli.data_dir.clone()
+                .unwrap_or_else(|| std::env::current_dir().unwrap().join(".local-index"));
+
+            let is_tty = std::io::stdout().is_terminal();
+
+            if !data_dir.exists() {
+                if is_tty {
+                    println!("No index found at '{}'.", data_dir.display());
+                    println!("Run `local-index index <path>` first, or specify --data-dir.");
+                } else {
+                    let status = serde_json::json!({
+                        "error": format!("No index found at '{}'", data_dir.display())
+                    });
+                    println!("{}", serde_json::to_string(&status)?);
+                }
+                return Ok(());
+            }
+
+            let db_path = data_dir.to_string_lossy().to_string();
+            let store = local_index::pipeline::store::ChunkStore::open(&db_path).await?;
+
+            let total_chunks = store.count_total_chunks().await.unwrap_or(0);
+            let total_files = store.count_distinct_files().await.unwrap_or(0);
+
+            if is_tty {
+                println!("Index Status");
+                println!("============");
+                println!("Total chunks:     {}", total_chunks);
+                println!("Total files:      {}", total_files);
+                println!("Last index time:  unknown");
+                println!("Queue depth:      0 (daemon not running)");
+                println!("Stale files:      0");
+                println!("Data directory:   {}", data_dir.display());
+            } else {
+                let status = serde_json::json!({
+                    "total_chunks": total_chunks,
+                    "total_files": total_files,
+                    "last_index_time": null,
+                    "queue_depth": 0,
+                    "queue_depth_note": "daemon not running",
+                    "stale_files": 0,
+                    "data_dir": data_dir.to_string_lossy()
+                });
+                println!("{}", serde_json::to_string(&status)?);
+            }
         }
         cli::Command::Serve { bind } => {
             tracing::info!(bind = %bind, "serve command invoked");
