@@ -72,12 +72,11 @@ Plans:
   - `vsearch` command: vector-only (semantic)
   - LanceDB FTS (confirmed available in Rust crate) handles BM25; LanceDB vector search handles semantic
   - Skip LLM reranking in v1 (qmd uses local GGUF models — not our deployment model)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
-- [ ] 03-03: TBD
+- [ ] 03-01-PLAN.md — Search module: types, SearchEngine with semantic/FTS/hybrid modes, score normalization
+- [ ] 03-02-PLAN.md — Output formatters, CLI wiring, FTS index in index command, integration tests
 
 ### Phase 4: Daemon Mode & Observability
 **Goal**: Operator can run a persistent daemon that watches for file changes and re-indexes in real time, with full Prometheus metrics
@@ -136,7 +135,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 |-------|----------------|--------|-----------|
 | 1. Foundation & File Processing | 3/3 | Complete | 2026-04-09 |
 | 2. Storage & Embedding Pipeline | 0/3 | Planning complete | - |
-| 3. Search | 0/3 | Not started | - |
+| 3. Search | 0/2 | Planning complete | - |
 | 4. Daemon Mode & Observability | 0/3 | Not started | - |
 | 5. Web Dashboard | 0/3 | Not started | - |
 | 6. Claude Code Integration | 0/1 | Not started | - |
