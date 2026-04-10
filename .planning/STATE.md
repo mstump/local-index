@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-04-10T21:42:22Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-04-10T22:04:03.568Z"
 last_activity: 2026-04-10
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 8
-  completed_plans: 7
-  percent: 21
+  completed_plans: 8
+  percent: 100
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-04-08)
 ## Current Position
 
 Phase: 3
-Plan: 1 of 2 complete
-Status: Executing
+Plan: 2 of 2 complete
+Status: Ready to execute
 Last activity: 2026-04-10
 
 Progress: [██░░░░░░░░] 21%
@@ -58,6 +58,7 @@ Progress: [██░░░░░░░░] 21%
 | Phase 02 P01 | 24min | 3 tasks | 9 files |
 | Phase 02 P03 | 40min | 2 tasks | 2 files |
 | Phase 03 P01 | 19min | 2 tasks | 6 files |
+| Phase 03 P02 | 8min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,8 @@ Recent decisions affecting current work:
 - [Phase 03]: FTS index rebuilt per search via ensure_fts_index() (idempotent, v1 acceptable)
 - [Phase 03]: Tag filter uses 3x over-fetch + post-query Rust filtering (no JSON path in LanceDB SQL)
 - [Phase 03]: RRF k=60 for hybrid search (standard default)
+- [Phase 03]: Always require VOYAGE_API_KEY even for FTS-only search mode (simplifies v1)
+- [Phase 03]: FTS index created at end of index command so search is fast out of the box
 
 ### Pending Todos
 
@@ -96,6 +99,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T21:42:22Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-04-10T22:04:03.562Z
+Stopped at: Completed 03-02-PLAN.md
 Resume file: None

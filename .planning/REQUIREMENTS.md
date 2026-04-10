@@ -9,7 +9,7 @@
 
 - [x] **CLI-01**: Operator can run `local-index index <path>` to perform a one-shot full index of a directory tree and exit on completion
 - [ ] **CLI-02**: Operator can run `local-index daemon <path>` to start a persistent background process that watches for file changes and indexes them in real time
-- [ ] **CLI-03**: Operator can run `local-index search "<query>"` to perform a search and receive structured JSON results on stdout
+- [x] **CLI-03**: Operator can run `local-index search "<query>"` to perform a search and receive structured JSON results on stdout
 - [ ] **CLI-04**: Operator can run `local-index status` to see total indexed chunks/files, last index time, pending queue depth, and stale file count
 - [ ] **CLI-05**: Operator can run `local-index serve` to start the HTTP server (web dashboard + metrics) without the file watcher
 - [x] **CLI-06**: All CLI commands and flags are implemented with `clap` derive macros and provide useful `--help` output with examples
@@ -45,13 +45,13 @@
 - [ ] **SRCH-01**: Search supports semantic (vector ANN) queries via LanceDB's native vector search
 - [ ] **SRCH-02**: Search supports full-text queries over chunk text
 - [ ] **SRCH-03**: Search supports hybrid mode that fuses semantic and full-text scores via Reciprocal Rank Fusion (RRF); hybrid is the default search mode
-- [ ] **SRCH-04**: Search results are returned as structured JSON with fields: `chunk_text`, `file_path` (vault-relative), `heading_breadcrumb`, `similarity_score`, `line_range` (start/end), `frontmatter` (tags/aliases/date)
-- [ ] **SRCH-05**: Search supports `--limit N` (default: 10) and `--min-score F` (default: none) flags
-- [ ] **SRCH-06**: Search supports `--mode [semantic|fts|hybrid]` flag to select search mode explicitly
-- [ ] **SRCH-07**: Search supports `--path-filter <prefix>` to restrict results to files under a given path prefix
-- [ ] **SRCH-08**: Search supports `--tag-filter <tag>` to restrict results to chunks from files with a given frontmatter tag
-- [ ] **SRCH-09**: Search supports `--format [json|pretty]` flag; `json` is the default (machine-readable), `pretty` renders a human-readable table
-- [ ] **SRCH-10**: Search supports `--context N` flag (default: 0) to include N chunks before and after each matching chunk in results
+- [x] **SRCH-04**: Search results are returned as structured JSON with fields: `chunk_text`, `file_path` (vault-relative), `heading_breadcrumb`, `similarity_score`, `line_range` (start/end), `frontmatter` (tags/aliases/date)
+- [x] **SRCH-05**: Search supports `--limit N` (default: 10) and `--min-score F` (default: none) flags
+- [x] **SRCH-06**: Search supports `--mode [semantic|fts|hybrid]` flag to select search mode explicitly
+- [x] **SRCH-07**: Search supports `--path-filter <prefix>` to restrict results to files under a given path prefix
+- [x] **SRCH-08**: Search supports `--tag-filter <tag>` to restrict results to chunks from files with a given frontmatter tag
+- [x] **SRCH-09**: Search supports `--format [json|pretty]` flag; `json` is the default (machine-readable), `pretty` renders a human-readable table
+- [x] **SRCH-10**: Search supports `--context N` flag (default: 0) to include N chunks before and after each matching chunk in results
 
 ### Observability
 
@@ -123,7 +123,7 @@
 |-------------|-------|--------|
 | CLI-01 | Phase 2 | Complete |
 | CLI-02 | Phase 4 | Pending |
-| CLI-03 | Phase 3 | Pending |
+| CLI-03 | Phase 3 | Complete |
 | CLI-04 | Phase 4 | Pending |
 | CLI-05 | Phase 5 | Pending |
 | CLI-06 | Phase 1 | Complete |
@@ -147,13 +147,13 @@
 | SRCH-01 | Phase 3 | Pending |
 | SRCH-02 | Phase 3 | Pending |
 | SRCH-03 | Phase 3 | Pending |
-| SRCH-04 | Phase 3 | Pending |
-| SRCH-05 | Phase 3 | Pending |
-| SRCH-06 | Phase 3 | Pending |
-| SRCH-07 | Phase 3 | Pending |
-| SRCH-08 | Phase 3 | Pending |
-| SRCH-09 | Phase 3 | Pending |
-| SRCH-10 | Phase 3 | Pending |
+| SRCH-04 | Phase 3 | Complete |
+| SRCH-05 | Phase 3 | Complete |
+| SRCH-06 | Phase 3 | Complete |
+| SRCH-07 | Phase 3 | Complete |
+| SRCH-08 | Phase 3 | Complete |
+| SRCH-09 | Phase 3 | Complete |
+| SRCH-10 | Phase 3 | Complete |
 | OBS-01 | Phase 4 | Pending |
 | OBS-02 | Phase 4 | Pending |
 | OBS-03 | Phase 4 | Pending |
