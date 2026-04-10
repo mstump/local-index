@@ -51,7 +51,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Dependencies, credentials, Embedder trait, VoyageEmbedder with retry
+- [x] 02-01-PLAN.md — Dependencies, credentials, Embedder trait, VoyageEmbedder with retry
 - [ ] 02-02-PLAN.md — LanceDB ChunkStore with schema, upsert, hash query, model guard
 - [ ] 02-03-PLAN.md — Wire index command to embed+store pipeline with progress reporting
 

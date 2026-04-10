@@ -18,9 +18,9 @@
 
 ### Credentials & Auth
 
-- [ ] **CRED-01**: Credential resolution checks `VOYAGE_API_KEY` env var for the configured embedding provider (Voyage AI in v1). `~/.claude/` fallback is deferred — not applicable to Voyage AI credentials.
-- [ ] **CRED-02**: Embedding provider is configurable via an `Embedder` trait; v1 ships Voyage AI implementation. Google Gemini implementation is deferred to a future phase.
-- [ ] **CRED-03**: Startup fails with a clear error message if no valid credentials are found for the configured embedding provider
+- [x] **CRED-01**: Credential resolution checks `VOYAGE_API_KEY` env var for the configured embedding provider (Voyage AI in v1). `~/.claude/` fallback is deferred — not applicable to Voyage AI credentials.
+- [x] **CRED-02**: Embedding provider is configurable via an `Embedder` trait; v1 ships Voyage AI implementation. Google Gemini implementation is deferred to a future phase.
+- [x] **CRED-03**: Startup fails with a clear error message if no valid credentials are found for the configured embedding provider
 
 ### Indexing Pipeline
 
@@ -30,7 +30,7 @@
 - [ ] **INDX-04**: Each chunk's content is SHA-256 hashed; on re-index, only chunks whose hash has changed are re-embedded (unchanged chunks are skipped)
 - [ ] **INDX-05**: Embeddings are stored in embedded LanceDB alongside chunk text, heading breadcrumb, file path (vault-relative), line range (start/end line numbers), frontmatter metadata, content hash, and embedding model ID
 - [ ] **INDX-06**: When the configured embedding model ID differs from the model ID stored in the database, the indexer warns the operator and requires `--force-reindex` to proceed
-- [ ] **INDX-07**: Embedding API calls use exponential backoff with jitter on rate-limit or transient errors; failed chunks are queued for retry without losing already-indexed data
+- [x] **INDX-07**: Embedding API calls use exponential backoff with jitter on rate-limit or transient errors; failed chunks are queued for retry without losing already-indexed data
 - [ ] **INDX-08**: Indexer reports progress during one-shot mode (files processed, chunks embedded, errors)
 
 ### File Watching (Daemon Mode)
@@ -129,16 +129,16 @@
 | CLI-06 | Phase 1 | Complete |
 | CLI-07 | Phase 1 | Complete |
 | CLI-08 | Phase 1 | Complete |
-| CRED-01 | Phase 2 | Pending |
-| CRED-02 | Phase 2 | Pending |
-| CRED-03 | Phase 2 | Pending |
+| CRED-01 | Phase 2 | Complete |
+| CRED-02 | Phase 2 | Complete |
+| CRED-03 | Phase 2 | Complete |
 | INDX-01 | Phase 1 | Complete |
 | INDX-02 | Phase 1 | Complete |
 | INDX-03 | Phase 1 | Complete |
 | INDX-04 | Phase 2 | Pending |
 | INDX-05 | Phase 2 | Pending |
 | INDX-06 | Phase 2 | Pending |
-| INDX-07 | Phase 2 | Pending |
+| INDX-07 | Phase 2 | Complete |
 | INDX-08 | Phase 2 | Pending |
 | WTCH-01 | Phase 4 | Pending |
 | WTCH-02 | Phase 4 | Pending |
