@@ -12,6 +12,16 @@ Fast, accurate semantic search over a local markdown vault that Claude can query
 
 ### Validated
 
+**Phase 3: Search** (validated 2026-04-10)
+
+- [x] SearchEngine dispatching semantic (cosine), FTS (BM25), and hybrid (RRF k=60) queries through LanceDB
+- [x] Score normalization: semantic = 1-(dist/2), FTS = score/max, hybrid = relevance/max
+- [x] Path prefix and tag post-filters; min_score threshold; context chunk assembly
+- [x] JSON formatter (wrapped object: query/mode/total/results) and pretty snippet formatter (═ separator, 200-char truncate)
+- [x] `local-index search` CLI wired with --limit, --min-score, --mode, --path-filter, --tag-filter, --context, --format
+- [x] FTS index created eagerly during `index` command; ensure_fts_index() lazy fallback on first search
+- [x] Integration test suite (9 tests) with MockEmbedder against real LanceDB in tempdirs
+
 **Phase 2: Storage & Embedding Pipeline** (validated 2026-04-10)
 
 - [x] Chunk markdown files with smart size-based splitting and semantic break-point detection (CHUNK_SIZE_CHARS=3600, 15% overlap)
@@ -136,4 +146,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-10 after Phase 2 completion — storage & embedding pipeline validated*
+*Last updated: 2026-04-10 after Phase 3 completion — search (semantic/FTS/hybrid) validated*
