@@ -59,6 +59,25 @@ uuid = { version = "1.0", features = ["v4"] }
 # Random for jitter
 rand = "0.8"
 
+# File watching
+notify = "8.0"
+notify-debouncer-full = "0.5"
+
+# HTTP server
+axum = "0.8"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace"] }
+
+# Metrics
+metrics = "0.24"
+metrics-exporter-prometheus = "0.16"
+
+# Shutdown coordination
+tokio-util = "0.7"
+
+# Time for status command
+chrono = { version = "0.4", features = ["serde"] }
+
 [dev-dependencies]
 tempfile = "3.0"
 serde_json = "1.0"
