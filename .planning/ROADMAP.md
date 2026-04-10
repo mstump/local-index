@@ -2,7 +2,7 @@
 
 ## Overview
 
-local-index delivers a single Rust binary that watches a markdown vault, chunks by heading, embeds via configurable providers, stores in embedded LanceDB, and exposes hybrid search through CLI, web dashboard, and Claude Code skills. The build progresses from zero-dependency foundation (CLI + chunker) through storage and embedding integration, search capabilities, daemon mode with observability, web dashboard, and finally Claude Code integration -- each phase independently verifiable.
+local-index delivers a single Rust binary that watches a markdown vault, chunks using smart size-based splitting with semantic break-point detection (inspired by qmd), embeds via configurable providers, stores in embedded LanceDB, and exposes hybrid search through CLI, web dashboard, and Claude Code skills. The build progresses from zero-dependency foundation (CLI + chunker) through storage and embedding integration, search capabilities, daemon mode with observability, web dashboard, and finally Claude Code integration -- each phase independently verifiable.
 
 ## Phases
 
@@ -28,7 +28,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Success Criteria** (what must be TRUE):
   1. Operator can run the binary and see valid `--help` output with all subcommands listed
   2. Operator can point the tool at a directory and it recursively discovers all `.md` files, skipping non-markdown with a trace log
-  3. Each markdown file is chunked by heading with heading hierarchy preserved as breadcrumbs (e.g., `## Goals > ### Q1`)
+  3. Each markdown file is chunked using a smart size-based algorithm (≤3600 chars/chunk, 15% overlap, break points scored by semantic quality: h1=100, h2=90, h3/codeblock=80…blank=20, no splits inside code fences); heading hierarchy is preserved as a breadcrumb metadata field on each chunk (e.g., `## Goals > ### Q1`) — **Note: chunker rewritten in Phase 2 Plan 01 to use this algorithm**
   4. YAML frontmatter is stripped from chunk content but available as structured metadata (tags, aliases, dates)
   5. Log output is structured via `tracing` and controllable via `RUST_LOG` or `--log-level`
 **Plans**: TBD
@@ -59,11 +59,19 @@ Plans:
 **Goal**: Operator can search their indexed vault with semantic, full-text, or hybrid queries and receive structured results
 **Depends on**: Phase 2
 **Requirements**: CLI-03, SRCH-01, SRCH-02, SRCH-03, SRCH-04, SRCH-05, SRCH-06, SRCH-07, SRCH-08, SRCH-09, SRCH-10
+**Reference**: qmd (tobi/qmd) — strong prior art for the hybrid search approach
 **Success Criteria** (what must be TRUE):
   1. Operator can run `local-index search "<query>"` and receive JSON results with chunk_text, file_path, heading_breadcrumb, similarity_score, line_range, and frontmatter
-  2. Hybrid mode (default) fuses semantic and full-text results via Reciprocal Rank Fusion; operator can switch to pure semantic or pure FTS via `--mode`
+  2. Hybrid mode (default) fuses BM25 full-text and vector semantic results via Reciprocal Rank Fusion (RRF); operator can switch to pure semantic or pure FTS via `--mode`
   3. Operator can filter results by path prefix (`--path-filter`) and frontmatter tag (`--tag-filter`)
   4. Operator can control result count (`--limit`), minimum score (`--min-score`), context window (`--context`), and output format (`--format json|pretty`)
+**Search design notes** (from qmd analysis):
+  - Three query types: `lex` (keyword → BM25/FTS only), `vec` (semantic → vector only), `hyde` (hypothetical document expansion → vector only)
+  - `query` command (default) uses typed expansion: generate lex+vec+hyde variants, run all, fuse with RRF, return ranked results
+  - `search` command: BM25-only (fast, keyword)
+  - `vsearch` command: vector-only (semantic)
+  - LanceDB FTS (confirmed available in Rust crate) handles BM25; LanceDB vector search handles semantic
+  - Skip LLM reranking in v1 (qmd uses local GGUF models — not our deployment model)
 **Plans**: TBD
 
 Plans:
