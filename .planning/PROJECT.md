@@ -12,7 +12,22 @@ Fast, accurate semantic search over a local markdown vault that Claude can query
 
 ### Validated
 
-(None yet — ship to validate)
+**Phase 2: Storage & Embedding Pipeline** (validated 2026-04-10)
+
+- [x] Chunk markdown files with smart size-based splitting and semantic break-point detection (CHUNK_SIZE_CHARS=3600, 15% overlap)
+- [x] Embed chunks via Voyage AI embeddings API (voyage-3.5, 1024 dims, 50/batch, 5x retry with jitter)
+- [x] Store chunks + embeddings in embedded LanceDB with 10-column Arrow schema
+- [x] Incremental updates: SHA-256 content hash comparison skips unchanged chunks on re-index
+- [x] Credential resolution: VOYAGE_API_KEY env var with actionable error on missing
+- [x] Model mismatch guard: blocks re-indexing with wrong model unless --force-reindex
+- [x] TTY-aware progress: indicatif bar in TTY, per-file eprintln! to stderr in non-TTY, JSON summary to stdout
+
+**Phase 1: Foundation & File Processing** (validated 2026-04-10)
+
+- [x] CLI skeleton with clap + derive macros (index, search, daemon, status, serve subcommands)
+- [x] Recursive markdown walker with per-file graceful error handling
+- [x] YAML frontmatter parsing with heading breadcrumb extraction
+- [x] `tracing` structured logging with RUST_LOG and --log-level support
 
 ### Active
 
@@ -93,13 +108,13 @@ Fast, accurate semantic search over a local markdown vault that Claude can query
 
 | Decision                            | Rationale                                                             | Outcome   |
 |-------------------------------------|-----------------------------------------------------------------------|-----------|
-| Chunk by heading                    | More precise search results; Obsidian notes are heading-structured    | — Pending |
-| Anthropic API for embeddings        | Reuses existing auth; avoids local model complexity in v1             | — Pending |
-| Env var preferred for credentials   | Explicit over implicit; `~/.claude/` fallback for dev convenience     | — Pending |
-| Single binary, embedded LanceDB     | Zero deployment friction; no separate database process                | — Pending |
-| Both daemon + one-shot modes        | Daemon for real-time watching; one-shot for CI/manual re-index        | — Pending |
-| Prometheus + HDR histograms         | Standard observability; histograms capture tail latency for API calls | — Pending |
-| Claude Code skills + shell wrappers | Skills for Claude integration; shell wrappers for humans and scripts  | — Pending |
+| Chunk by heading                    | More precise search results; Obsidian notes are heading-structured    | Validated Phase 1 — smart size-based chunking with heading breadcrumbs |
+| Voyage AI for embeddings            | voyage-3.5 chosen over Anthropic; 1024 dims, better retrieval quality | Validated Phase 2 — VOYAGE_API_KEY env var, 50/batch, 5x retry |
+| Env var preferred for credentials   | Explicit over implicit; simpler than ~/.claude/ JSON parsing           | Validated Phase 2 — VOYAGE_API_KEY only, clear error on missing |
+| Single binary, embedded LanceDB     | Zero deployment friction; no separate database process                | Validated Phase 2 — 10-col Arrow schema, hash-based incremental indexing |
+| Both daemon + one-shot modes        | Daemon for real-time watching; one-shot for CI/manual re-index        | — Pending (Phase 4+) |
+| Prometheus + HDR histograms         | Standard observability; histograms capture tail latency for API calls | — Pending (Phase 4) |
+| Claude Code skills + shell wrappers | Skills for Claude integration; shell wrappers for humans and scripts  | — Pending (Phase 6) |
 
 ## Evolution
 
@@ -121,4 +136,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-08 after initialization*
+*Last updated: 2026-04-10 after Phase 2 completion — storage & embedding pipeline validated*
