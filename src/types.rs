@@ -23,11 +23,13 @@ pub struct Frontmatter {
 pub struct Chunk {
     /// Vault-relative file path
     pub file_path: PathBuf,
-    /// Heading hierarchy breadcrumb (e.g., "## Goals > ### Q1")
+    /// Heading hierarchy active at the start of this chunk (e.g., "# H1 > ## H2").
+    /// Used for display and filtering. A chunk body may contain text from multiple headings.
     pub heading_breadcrumb: String,
     /// The heading level of this chunk's immediate heading (0 = pre-heading content)
     pub heading_level: u8,
-    /// The chunk's text content (frontmatter stripped, headings stripped)
+    /// Raw markdown text slice for this chunk (headings included in body for embedding quality).
+    /// Frontmatter is excluded. Chunks may overlap (CHUNK_OVERLAP_CHARS).
     pub body: String,
     /// Start line number in the source file (1-based)
     pub line_start: usize,

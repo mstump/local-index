@@ -140,6 +140,8 @@ fn test_index_frontmatter_preserved() {
 #[test]
 fn test_index_heading_breadcrumbs() {
     let dir = tempfile::tempdir().unwrap();
+    // With smart size-based chunking, small content produces a single chunk.
+    // The heading_breadcrumb reflects the heading active at the chunk's start position.
     fs::write(
         dir.path().join("headings.md"),
         "# Chapter\n## Section\n### Subsection\nContent here\n## Another\nMore content\n",
@@ -155,37 +157,26 @@ fn test_index_heading_breadcrumbs() {
         .filter_map(|line| serde_json::from_str(line).ok())
         .collect();
 
-    // Find chunk with "Content here"
-    let subsection_chunk = json_lines
-        .iter()
-        .find(|v| {
-            v["body"]
-                .as_str()
-                .map(|b| b.contains("Content here"))
-                .unwrap_or(false)
-        })
-        .expect("should have a chunk containing 'Content here'");
-
+    // With smart chunking, this small content produces a single chunk
     assert_eq!(
-        subsection_chunk["heading_breadcrumb"].as_str().unwrap(),
-        "# Chapter > ## Section > ### Subsection",
-        "subsection breadcrumb should show full hierarchy"
+        json_lines.len(),
+        1,
+        "small content should produce exactly 1 chunk with smart chunking"
     );
 
-    // Find chunk with "More content"
-    let another_chunk = json_lines
-        .iter()
-        .find(|v| {
-            v["body"]
-                .as_str()
-                .map(|b| b.contains("More content"))
-                .unwrap_or(false)
-        })
-        .expect("should have a chunk containing 'More content'");
+    let chunk = &json_lines[0];
 
+    // The single chunk's breadcrumb is the first heading (active at chunk start)
     assert_eq!(
-        another_chunk["heading_breadcrumb"].as_str().unwrap(),
-        "# Chapter > ## Another",
-        "sibling heading should reset breadcrumb"
+        chunk["heading_breadcrumb"].as_str().unwrap(),
+        "# Chapter",
+        "breadcrumb should be the heading active at chunk start"
     );
+
+    // The body should contain ALL content (headings included in body with smart chunking)
+    let body = chunk["body"].as_str().unwrap();
+    assert!(body.contains("Content here"), "body should contain 'Content here'");
+    assert!(body.contains("More content"), "body should contain 'More content'");
+    assert!(body.contains("## Section"), "body should include heading text");
+    assert!(body.contains("## Another"), "body should include heading text");
 }
