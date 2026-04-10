@@ -7,7 +7,7 @@
 
 ### CLI & Configuration
 
-- [ ] **CLI-01**: Operator can run `local-index index <path>` to perform a one-shot full index of a directory tree and exit on completion
+- [x] **CLI-01**: Operator can run `local-index index <path>` to perform a one-shot full index of a directory tree and exit on completion
 - [ ] **CLI-02**: Operator can run `local-index daemon <path>` to start a persistent background process that watches for file changes and indexes them in real time
 - [ ] **CLI-03**: Operator can run `local-index search "<query>"` to perform a search and receive structured JSON results on stdout
 - [ ] **CLI-04**: Operator can run `local-index status` to see total indexed chunks/files, last index time, pending queue depth, and stale file count
@@ -31,7 +31,7 @@
 - [ ] **INDX-05**: Embeddings are stored in embedded LanceDB alongside chunk text, heading breadcrumb, file path (vault-relative), line range (start/end line numbers), frontmatter metadata, content hash, and embedding model ID
 - [ ] **INDX-06**: When the configured embedding model ID differs from the model ID stored in the database, the indexer warns the operator and requires `--force-reindex` to proceed
 - [x] **INDX-07**: Embedding API calls use exponential backoff with jitter on rate-limit or transient errors; failed chunks are queued for retry without losing already-indexed data
-- [ ] **INDX-08**: Indexer reports progress during one-shot mode (files processed, chunks embedded, errors)
+- [x] **INDX-08**: Indexer reports progress during one-shot mode (files processed, chunks embedded, errors)
 
 ### File Watching (Daemon Mode)
 
@@ -121,7 +121,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CLI-01 | Phase 2 | Pending |
+| CLI-01 | Phase 2 | Complete |
 | CLI-02 | Phase 4 | Pending |
 | CLI-03 | Phase 3 | Pending |
 | CLI-04 | Phase 4 | Pending |
@@ -139,7 +139,7 @@
 | INDX-05 | Phase 2 | Pending |
 | INDX-06 | Phase 2 | Pending |
 | INDX-07 | Phase 2 | Complete |
-| INDX-08 | Phase 2 | Pending |
+| INDX-08 | Phase 2 | Complete |
 | WTCH-01 | Phase 4 | Pending |
 | WTCH-02 | Phase 4 | Pending |
 | WTCH-03 | Phase 4 | Pending |

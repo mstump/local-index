@@ -52,8 +52,8 @@ Plans:
 
 Plans:
 - [x] 02-01-PLAN.md — Dependencies, credentials, Embedder trait, VoyageEmbedder with retry
-- [ ] 02-02-PLAN.md — LanceDB ChunkStore with schema, upsert, hash query, model guard
-- [ ] 02-03-PLAN.md — Wire index command to embed+store pipeline with progress reporting
+- [x] 02-02-PLAN.md — LanceDB ChunkStore with schema, upsert, hash query, model guard
+- [x] 02-03-PLAN.md — Wire index command to embed+store pipeline with progress reporting
 
 ### Phase 3: Search
 **Goal**: Operator can search their indexed vault with semantic, full-text, or hybrid queries and receive structured results
