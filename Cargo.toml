@@ -37,6 +37,7 @@ thiserror = "2.0"
 
 # Vector storage
 lancedb = "0.26.2"
+lance-index = "=2.0.0"
 arrow-array = "57"
 arrow-schema = "57"
 

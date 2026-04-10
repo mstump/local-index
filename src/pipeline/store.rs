@@ -291,6 +291,11 @@ impl ChunkStore {
         )))
     }
 
+    /// Expose the underlying LanceDB table for search queries.
+    pub fn table(&self) -> &lancedb::Table {
+        &self.table
+    }
+
     /// Clear all rows from the chunks table (for force-reindex).
     pub async fn clear_all(&self) -> Result<(), LocalIndexError> {
         self.table

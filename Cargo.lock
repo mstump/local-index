@@ -3539,6 +3539,7 @@ dependencies = [
  "dotenvy",
  "futures",
  "indicatif",
+ "lance-index",
  "lancedb",
  "pulldown-cmark",
  "rand 0.8.5",
