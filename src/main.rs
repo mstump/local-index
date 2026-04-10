@@ -323,6 +323,17 @@ async fn main() -> Result<()> {
                 errors = error_count,
                 "indexing complete"
             );
+
+            // Create/refresh FTS index for search command
+            if chunks_embedded > 0 {
+                tracing::info!("creating FTS index for search");
+                let engine = local_index::search::SearchEngine::new(&store, &embedder);
+                if let Err(e) = engine.ensure_fts_index().await {
+                    tracing::warn!(error = %e, "failed to create FTS index (search may need to create it on first use)");
+                } else {
+                    tracing::info!("FTS index created successfully");
+                }
+            }
         }
         cli::Command::Daemon { path, bind } => {
             tracing::info!(
@@ -353,7 +364,56 @@ async fn main() -> Result<()> {
                 format = ?format,
                 "search command invoked"
             );
-            tracing::warn!("search command not yet implemented");
+
+            // Resolve data directory
+            let data_dir = cli.data_dir.clone()
+                .unwrap_or_else(|| std::env::current_dir().unwrap().join(".local-index"));
+
+            if !data_dir.exists() {
+                anyhow::bail!(
+                    "No index found at '{}'. Run `local-index index <path>` first, or specify --data-dir.",
+                    data_dir.display()
+                );
+            }
+
+            let db_path = data_dir.to_string_lossy().to_string();
+
+            // Open store
+            let store = local_index::pipeline::store::ChunkStore::open(&db_path).await?;
+
+            // Resolve credentials and create embedder
+            let api_key = resolve_voyage_key()?;
+            let embedder = VoyageEmbedder::new(api_key);
+
+            let engine = local_index::search::SearchEngine::new(&store, &embedder);
+
+            // Convert CLI SearchMode to library SearchMode
+            let lib_mode = match mode {
+                cli::SearchMode::Semantic => local_index::search::SearchMode::Semantic,
+                cli::SearchMode::Fts => local_index::search::SearchMode::Fts,
+                cli::SearchMode::Hybrid => local_index::search::SearchMode::Hybrid,
+            };
+
+            let opts = local_index::search::SearchOptions {
+                query: query.clone(),
+                limit: *limit,
+                min_score: *min_score,
+                mode: lib_mode,
+                path_filter: path_filter.clone(),
+                tag_filter: tag_filter.clone(),
+                context: *context,
+            };
+
+            let response = engine.search(&opts).await?;
+
+            // Format and output
+            let output = match format {
+                cli::OutputFormat::Json => local_index::search::format_json(&response)
+                    .map_err(|e| anyhow::anyhow!("Failed to serialize results: {}", e))?,
+                cli::OutputFormat::Pretty => local_index::search::format_pretty(&response),
+            };
+
+            println!("{}", output);
         }
         cli::Command::Status => {
             tracing::info!("status command invoked");
