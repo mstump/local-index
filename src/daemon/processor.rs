@@ -272,8 +272,10 @@ async fn remove_file(path: &Path, vault_path: &Path, store: &ChunkStore) {
     tracing::info!(file = %relative_str, "removing chunks for deleted file");
 
     if let Err(e) = store.delete_chunks_for_file(&relative_str).await {
+        // Log only -- this is a store/database error, not an embedding error.
+        // Incrementing embedding_errors_total here would mislead operators into
+        // investigating the embedding pipeline when the real issue is the database.
         tracing::warn!(file = %relative_str, error = %e, "failed to remove chunks for deleted file");
-        metrics::increment_embedding_errors();
     }
     // NOTE: do NOT call metrics::increment_file_events() here.
     // All callers of remove_file are responsible for incrementing the counter,
