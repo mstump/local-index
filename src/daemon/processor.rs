@@ -199,8 +199,8 @@ async fn reindex_file<E: Embedder>(
 
     tracing::info!(file = %relative_str, "re-indexing file");
 
-    // Read file
-    let content = match std::fs::read_to_string(path) {
+    // Read file (async to avoid blocking the executor thread)
+    let content = match tokio::fs::read_to_string(path).await {
         Ok(c) => c,
         Err(e) => {
             tracing::warn!(file = %relative_str, error = %e, "failed to read file");
