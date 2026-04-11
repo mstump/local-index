@@ -275,5 +275,7 @@ async fn remove_file(path: &Path, vault_path: &Path, store: &ChunkStore) {
         tracing::warn!(file = %relative_str, error = %e, "failed to remove chunks for deleted file");
         metrics::increment_embedding_errors();
     }
-    metrics::increment_file_events();
+    // NOTE: do NOT call metrics::increment_file_events() here.
+    // All callers of remove_file are responsible for incrementing the counter,
+    // consistent with how reindex_file is structured.
 }
