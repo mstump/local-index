@@ -125,7 +125,7 @@ Accent reserved for: search submit button background, active nav link bottom-bor
 
 - Search form: single row. Text input takes remaining width. Mode `<select>` (hybrid/semantic/fts) is 120px wide. Submit button "Search Notes" is accent-colored.
 - Results summary line: 14px, secondary text color, below form with 16px gap.
-- Each result card: 1px border `#dadce0`, border-radius 4px, padding 16px, margin-bottom 12px.
+- Each result card: 1px border `#dadce0`, border-radius 4px, padding 16px, margin-bottom 16px.
 - Result card line 1: file path in monospace 14px as a plain text label + breadcrumb, right-aligned score badge.
 - Result card line 2: chunk text preview, body style (16px/400), truncated to 3 lines with `overflow: hidden`.
 - Score badge: accent text color, 14px semibold, no background.
