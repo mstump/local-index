@@ -24,8 +24,12 @@ impl FileWatcher {
             None,
             move |result: DebounceEventResult| {
                 if let Ok(events) = result {
-                    // blocking_send because this callback runs on notify's sync thread
-                    let _ = tx.blocking_send(events);
+                    // try_send avoids blocking notify's internal thread when the
+                    // processor is slow. Dropped batches are logged so operators
+                    // can detect back-pressure without the watcher thread stalling.
+                    if tx.try_send(events).is_err() {
+                        tracing::warn!("file event channel full or closed, dropping event batch");
+                    }
                 }
             },
         )?;
