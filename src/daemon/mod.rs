@@ -61,6 +61,9 @@ pub async fn run_daemon(
             Ok(l) => l,
             Err(e) => {
                 tracing::error!(error = %e, bind = %bind_clone, "failed to bind HTTP server");
+                // Cancel the token so all other tasks shut down cleanly rather than
+                // silently running with no observability endpoints.
+                http_token.cancel();
                 return;
             }
         };
