@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>local-index{% block title %} -- Dashboard{% endblock %}</title>
+    <style>
+        /* Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Colors */
+        :root {
+            --bg: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --accent: #1a73e8;
+            --accent-hover: #1557b0;
+            --text-primary: #1a1a1a;
+            --text-secondary: #5f6368;
+            --border: #dadce0;
+            --success: #188038;
+            --warning: #ea8600;
+        }
+
+        /* Typography */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.5;
+            font-weight: 400;
+            color: var(--text-primary);
+            background: var(--bg);
+        }
+
+        h1 {
+            font-size: 28px;
+            line-height: 1.2;
+            font-weight: 600;
+        }
+
+        h2 {
+            font-size: 20px;
+            line-height: 1.2;
+            font-weight: 600;
+        }
+
+        code, pre, .mono {
+            font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, "Courier New", monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            font-weight: 400;
+        }
+
+        .label {
+            font-size: 14px;
+            line-height: 1.4;
+            font-weight: 600;
+        }
+
+        .text-secondary {
+            color: var(--text-secondary);
+        }
+
+        .text-success {
+            color: var(--success);
+        }
+
+        .text-warning {
+            color: var(--warning);
+        }
+
+        /* Spacing utilities */
+        .mt-xs { margin-top: 4px; }
+        .mt-sm { margin-top: 8px; }
+        .mt-md { margin-top: 16px; }
+        .mt-lg { margin-top: 24px; }
+        .mt-xl { margin-top: 32px; }
+        .mt-2xl { margin-top: 48px; }
+        .mb-xs { margin-bottom: 4px; }
+        .mb-sm { margin-bottom: 8px; }
+        .mb-md { margin-bottom: 16px; }
+        .mb-lg { margin-bottom: 24px; }
+
+        /* Nav */
+        nav {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            height: 48px;
+            padding: 0 24px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-brand {
+            font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, "Courier New", monospace;
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .nav-brand:hover {
+            color: var(--text-primary);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 16px;
+            margin-left: auto;
+        }
+
+        .nav-links a {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding-bottom: 2px;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent);
+        }
+
+        .nav-links a.active {
+            color: var(--accent);
+            border-bottom: 2px solid var(--accent);
+        }
+
+        /* Main content */
+        main {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 48px 24px;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/" class="nav-brand">local-index</a>
+        <div class="nav-links">
+            <a href="/" {% if active_nav == "search" %}class="active"{% endif %}>Search</a>
+            <a href="/index" {% if active_nav == "index" %}class="active"{% endif %}>Index</a>
+            <a href="/status" {% if active_nav == "status" %}class="active"{% endif %}>Status</a>
+            <a href="/settings" {% if active_nav == "settings" %}class="active"{% endif %}>Settings</a>
+        </div>
+    </nav>
+    <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

@@ -4,3 +4,4 @@ pub mod pipeline;
 pub mod search;
 pub mod types;
 pub mod daemon;
+pub mod web;

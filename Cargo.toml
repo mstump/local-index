@@ -72,11 +72,18 @@ tower-http = { version = "0.6", features = ["trace"] }
 metrics = "0.24"
 metrics-exporter-prometheus = "0.16"
 
+# Templates
+askama = "0.15"
+askama_web = { version = "0.15", features = ["axum-0.8"] }
+
 # Shutdown coordination
 tokio-util = { version = "0.7", features = ["rt"] }
 
 # Time for status command
 chrono = { version = "0.4", features = ["serde"] }
+
+# Home directory resolution
+dirs = "6.0"
 
 [dev-dependencies]
 tempfile = "3.0"
