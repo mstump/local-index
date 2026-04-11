@@ -5,12 +5,14 @@ pub mod shutdown;
 pub mod watcher;
 
 use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio_util::task::TaskTracker;
 
 use crate::credentials::resolve_voyage_key;
 use crate::pipeline::embedder::VoyageEmbedder;
 use crate::pipeline::store::ChunkStore;
+use crate::web::context::{AppState, DashboardConfig};
 
 /// Run the daemon: watcher + event processor + HTTP server.
 /// Blocks until shutdown signal is received.
@@ -22,10 +24,10 @@ pub async fn run_daemon(
     // 1. Install metrics recorder FIRST (before any metrics macros are used)
     let prom_handle = metrics::setup_metrics()?;
 
-    // 2. Open store and create embedder
-    let store = ChunkStore::open(&data_dir).await?;
+    // 2. Open store and create embedder (wrapped in Arc for shared ownership)
+    let store = Arc::new(ChunkStore::open(&data_dir).await?);
     let api_key = resolve_voyage_key()?;
-    let embedder = VoyageEmbedder::new(api_key);
+    let embedder = Arc::new(VoyageEmbedder::new(api_key));
 
     // 3. Set initial gauge values (count_total_chunks and count_distinct_files from Plan 02)
     if let Ok(total) = store.count_total_chunks().await {
@@ -36,27 +38,45 @@ pub async fn run_daemon(
     }
     metrics::set_queue_depth(0.0);
 
-    // 4. Set up shutdown coordination
+    // 4. Build AppState for dashboard
+    let config = Arc::new(DashboardConfig {
+        data_dir: data_dir.clone(),
+        bind_addr: bind_addr.clone(),
+        log_level: std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()),
+        credential_source: "VOYAGE_API_KEY env var".to_string(),
+        embedding_provider: "voyage".to_string(),
+        embedding_model: "voyage-3.5".to_string(),
+        embedding_dimensions: 1024,
+    });
+    let app_state = Arc::new(AppState {
+        store: Arc::clone(&store),
+        embedder: Arc::clone(&embedder),
+        config,
+    });
+
+    // 5. Set up shutdown coordination
     let token = shutdown::setup_shutdown();
     let tracker = TaskTracker::new();
 
-    // 5. Set up file watcher with channel bridge
+    // 6. Set up file watcher with channel bridge
     let (event_tx, event_rx) = mpsc::channel(256);
     let _watcher = watcher::FileWatcher::new(&vault_path, event_tx)?;
 
     tracing::info!(path = %vault_path.display(), bind = %bind_addr, "daemon started");
 
-    // 6. Spawn event processor
+    // 7. Spawn event processor
     let proc_token = token.clone();
+    let proc_store = Arc::clone(&store);
+    let proc_embedder = Arc::clone(&embedder);
     tracker.spawn(async move {
-        processor::run_event_processor(event_rx, vault_path, store, embedder, proc_token).await;
+        processor::run_event_processor(event_rx, vault_path, proc_store, proc_embedder, proc_token).await;
     });
 
-    // 7. Spawn HTTP server
+    // 8. Spawn HTTP server with combined metrics + dashboard router
     let http_token = token.clone();
     let bind_clone = bind_addr.clone();
     tracker.spawn(async move {
-        let app = http::metrics_router(prom_handle);
+        let app = http::app_router(prom_handle, app_state);
         let listener = match tokio::net::TcpListener::bind(&bind_clone).await {
             Ok(l) => l,
             Err(e) => {
@@ -76,11 +96,59 @@ pub async fn run_daemon(
         }
     });
 
-    // 8. Wait for all tasks to complete after shutdown
+    // 9. Wait for all tasks to complete after shutdown
     token.cancelled().await;
     tracker.close();
     tracker.wait().await;
 
     tracing::info!("daemon shutdown complete");
+    Ok(())
+}
+
+/// Run the HTTP server (dashboard + metrics) without file watching.
+/// Used by the `serve` command for read-only dashboard access.
+pub async fn run_serve(bind_addr: String, data_dir: String, log_level: String) -> anyhow::Result<()> {
+    // 1. Install metrics recorder
+    let prom_handle = metrics::setup_metrics()?;
+
+    // 2. Open store (creates empty DB if not found, matching index command behavior)
+    let store = Arc::new(ChunkStore::open(&data_dir).await?);
+
+    // 3. Resolve credentials
+    let api_key = resolve_voyage_key()?;
+    let embedder = Arc::new(VoyageEmbedder::new(api_key));
+
+    // 4. Set initial gauge values
+    if let Ok(total) = store.count_total_chunks().await {
+        metrics::set_chunks_total(total as f64);
+    }
+    if let Ok(files) = store.count_distinct_files().await {
+        metrics::set_files_total(files as f64);
+    }
+
+    // 5. Build AppState
+    let config = Arc::new(DashboardConfig {
+        data_dir: data_dir.clone(),
+        bind_addr: bind_addr.clone(),
+        log_level,
+        credential_source: "VOYAGE_API_KEY env var".to_string(),
+        embedding_provider: "voyage".to_string(),
+        embedding_model: "voyage-3.5".to_string(),
+        embedding_dimensions: 1024,
+    });
+    let app_state = Arc::new(AppState { store, embedder, config });
+
+    // 6. Build router and serve
+    let app = http::app_router(prom_handle, app_state);
+    let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
+    tracing::info!(bind = %bind_addr, "serve: HTTP server listening");
+
+    // 7. Graceful shutdown on Ctrl+C
+    let shutdown_token = shutdown::setup_shutdown();
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async move { shutdown_token.cancelled().await })
+        .await?;
+
+    tracing::info!("serve: shutdown complete");
     Ok(())
 }

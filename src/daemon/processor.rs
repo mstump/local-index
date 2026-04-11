@@ -2,6 +2,7 @@ use notify::event::{ModifyKind, RenameMode};
 use notify::EventKind;
 use notify_debouncer_full::DebouncedEvent;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
@@ -21,8 +22,8 @@ use crate::search::SearchEngine;
 pub async fn run_event_processor<E: Embedder>(
     mut rx: mpsc::Receiver<Vec<DebouncedEvent>>,
     vault_path: PathBuf,
-    store: ChunkStore,
-    embedder: E,
+    store: Arc<ChunkStore>,
+    embedder: Arc<E>,
     token: CancellationToken,
 ) {
     tracing::info!("event processor started");

@@ -4,6 +4,9 @@ use axum::routing::get;
 use axum::Router;
 use metrics_exporter_prometheus::PrometheusHandle;
 
+use crate::web::context::AppState;
+use crate::web::handlers;
+
 /// Create an axum Router with /metrics and /health endpoints.
 pub fn metrics_router(handle: PrometheusHandle) -> Router {
     let handle = Arc::new(handle);
@@ -19,6 +22,22 @@ pub fn metrics_router(handle: PrometheusHandle) -> Router {
             }),
         )
         .route("/health", get(|| async { "ok" }))
+}
+
+/// Create the dashboard router with all UI routes.
+pub fn dashboard_router(state: Arc<AppState>) -> Router {
+    Router::new()
+        .route("/", get(handlers::search_handler))
+        .route("/search", get(handlers::search_handler))
+        .route("/index", get(handlers::index_handler))
+        .route("/status", get(handlers::status_handler))
+        .route("/settings", get(handlers::settings_handler))
+        .with_state(state)
+}
+
+/// Combine metrics and dashboard routers into a single application router.
+pub fn app_router(handle: PrometheusHandle, state: Arc<AppState>) -> Router {
+    metrics_router(handle).merge(dashboard_router(state))
 }
 
 #[cfg(test)]

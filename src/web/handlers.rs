@@ -1,1 +1,136 @@
-// Placeholder -- full implementation in Task 2
+use std::sync::Arc;
+
+use askama::Template;
+use askama_web::WebTemplate;
+use axum::extract::{Query, State};
+use serde::Deserialize;
+
+use crate::web::context::AppState;
+use crate::web::error::AppError;
+
+// -- Search --
+
+#[derive(Deserialize)]
+pub struct SearchParams {
+    pub q: Option<String>,
+    pub mode: Option<String>,
+}
+
+pub struct SearchResultView {
+    pub file_path: String,
+    pub heading_breadcrumb: String,
+    pub chunk_text: String,
+    pub similarity_score: f64,
+}
+
+#[derive(Template, WebTemplate)]
+#[template(path = "search.html")]
+pub struct SearchTemplate {
+    pub query: Option<String>,
+    pub mode: String,
+    pub results: Vec<SearchResultView>,
+    pub result_count: usize,
+    pub active_nav: &'static str,
+}
+
+pub async fn search_handler(
+    State(_state): State<Arc<AppState>>,
+    Query(params): Query<SearchParams>,
+) -> Result<SearchTemplate, AppError> {
+    Ok(SearchTemplate {
+        query: params.q,
+        mode: params.mode.unwrap_or_else(|| "hybrid".to_string()),
+        results: vec![],
+        result_count: 0,
+        active_nav: "search",
+    })
+}
+
+// -- Index Browser --
+
+pub struct IndexFileView {
+    pub file_path: String,
+    pub chunk_count: usize,
+    pub last_indexed: String,
+}
+
+#[derive(Template, WebTemplate)]
+#[template(path = "index.html")]
+pub struct IndexTemplate {
+    pub files: Vec<IndexFileView>,
+    pub total_files: usize,
+    pub total_chunks: usize,
+    pub active_nav: &'static str,
+}
+
+pub async fn index_handler(
+    State(_state): State<Arc<AppState>>,
+) -> Result<IndexTemplate, AppError> {
+    Ok(IndexTemplate {
+        files: vec![],
+        total_files: 0,
+        total_chunks: 0,
+        active_nav: "index",
+    })
+}
+
+// -- Status --
+
+#[derive(Template, WebTemplate)]
+#[template(path = "status.html")]
+pub struct StatusTemplate {
+    pub total_files: usize,
+    pub total_chunks: usize,
+    pub last_index_time: String,
+    pub queue_depth: usize,
+    pub stale_files: usize,
+    pub embedding_model: String,
+    pub embedding_dimensions: usize,
+    pub total_embeddings: usize,
+    pub token_usage: String,
+    pub active_nav: &'static str,
+}
+
+pub async fn status_handler(
+    State(_state): State<Arc<AppState>>,
+) -> Result<StatusTemplate, AppError> {
+    Ok(StatusTemplate {
+        total_files: 0,
+        total_chunks: 0,
+        last_index_time: "\u{2014}".to_string(),
+        queue_depth: 0,
+        stale_files: 0,
+        embedding_model: "voyage-3.5".to_string(),
+        embedding_dimensions: 1024,
+        total_embeddings: 0,
+        token_usage: "N/A".to_string(),
+        active_nav: "status",
+    })
+}
+
+// -- Settings --
+
+#[derive(Template, WebTemplate)]
+#[template(path = "settings.html")]
+pub struct SettingsTemplate {
+    pub data_dir: String,
+    pub bind_addr: String,
+    pub embedding_provider: String,
+    pub credential_source: String,
+    pub log_level: String,
+    pub active_nav: &'static str,
+}
+
+pub async fn settings_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<SettingsTemplate, AppError> {
+    let config = &state.config;
+    Ok(SettingsTemplate {
+        data_dir: config.data_dir.clone(),
+        bind_addr: config.bind_addr.clone(),
+        embedding_provider: config.embedding_provider.clone(),
+        credential_source: config.credential_source.clone(),
+        log_level: config.log_level.clone(),
+        active_nav: "settings",
+    })
+}

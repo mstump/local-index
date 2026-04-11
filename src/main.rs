@@ -478,8 +478,22 @@ async fn main() -> Result<()> {
             }
         }
         cli::Command::Serve { bind } => {
-            tracing::info!(bind = %bind, "serve command invoked");
-            tracing::warn!("serve command not yet implemented");
+            let data_dir = cli.data_dir.clone()
+                .unwrap_or_else(|| {
+                    // Per CONTEXT.md: defaults to $LOCAL_INDEX_DATA_DIR or ~/.local-index
+                    if let Ok(env_dir) = std::env::var("LOCAL_INDEX_DATA_DIR") {
+                        std::path::PathBuf::from(env_dir)
+                    } else {
+                        dirs::home_dir()
+                            .unwrap_or_else(|| std::path::PathBuf::from("."))
+                            .join(".local-index")
+                    }
+                });
+            let db_path = data_dir.to_string_lossy().to_string();
+
+            tracing::info!(bind = %bind, data_dir = %db_path, "starting serve");
+
+            local_index::daemon::run_serve(bind.clone(), db_path, cli.log_level.clone()).await?;
         }
     }
 

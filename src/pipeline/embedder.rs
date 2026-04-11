@@ -18,6 +18,23 @@ pub trait Embedder: Send + Sync {
     fn dimensions(&self) -> usize;
 }
 
+impl<E: Embedder> Embedder for std::sync::Arc<E> {
+    fn embed(
+        &self,
+        texts: &[String],
+    ) -> impl std::future::Future<Output = Result<EmbeddingResult, LocalIndexError>> + Send {
+        (**self).embed(texts)
+    }
+
+    fn model_id(&self) -> &str {
+        (**self).model_id()
+    }
+
+    fn dimensions(&self) -> usize {
+        (**self).dimensions()
+    }
+}
+
 // -- Voyage AI API types --
 
 #[derive(Debug, Serialize)]
