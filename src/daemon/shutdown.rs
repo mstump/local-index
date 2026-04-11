@@ -35,10 +35,12 @@ pub fn setup_shutdown() -> CancellationToken {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::time::Duration;
 
     /// Verify that SIGTERM cancels the CancellationToken within 500ms.
     #[tokio::test]
+    #[serial]
     async fn test_sigterm_cancels_token() {
         let token = setup_shutdown();
         // Give handler task time to schedule
@@ -55,6 +57,7 @@ mod tests {
 
     /// Verify that SIGINT still cancels the CancellationToken within 500ms.
     #[tokio::test]
+    #[serial]
     async fn test_sigint_still_cancels_token() {
         let token = setup_shutdown();
         // Give handler task time to schedule
