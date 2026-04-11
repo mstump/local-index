@@ -91,9 +91,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Dependencies, metrics foundation, Prometheus setup, HTTP router
-- [ ] 04-02-PLAN.md — Status command with ChunkStore aggregate queries
-- [ ] 04-03-PLAN.md — File watcher, event processor, graceful shutdown, daemon CLI wiring
+- [x] 04-01-PLAN.md — Dependencies, metrics foundation, Prometheus setup, HTTP router
+- [x] 04-02-PLAN.md — Status command with ChunkStore aggregate queries
+- [x] 04-03-PLAN.md — File watcher, event processor, graceful shutdown, daemon CLI wiring
 
 ### Phase 5: Web Dashboard
 **Goal**: Operator can browse and search their index through a web interface served by the same process
