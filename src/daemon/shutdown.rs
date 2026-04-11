@@ -27,7 +27,7 @@ pub fn setup_shutdown() -> CancellationToken {
         // exit naturally once all tasks drain)
         tokio::signal::ctrl_c().await.ok();
         tracing::warn!("second signal received, forcing exit");
-        std::process::exit(1);
+        std::process::exit(130);
     });
     token
 }
