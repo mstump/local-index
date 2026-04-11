@@ -16,6 +16,13 @@ use crate::types::Chunk;
 pub const TABLE_NAME: &str = "chunks";
 pub const EMBEDDING_DIM: i32 = 1024;
 
+/// Escape a string for safe interpolation into a LanceDB SQL filter expression.
+/// Single quotes are doubled (SQL standard escaping) to prevent injection via
+/// filenames that contain apostrophes (e.g. `it's a note.md`).
+fn escape_sql_string(s: &str) -> String {
+    s.replace('\'', "''")
+}
+
 /// Compute a deterministic SHA-256 content hash over body + heading_breadcrumb + frontmatter.
 /// Used for incremental re-indexing: unchanged content produces the same hash,
 /// so we can skip re-embedding.
@@ -198,7 +205,7 @@ impl ChunkStore {
         let batches: Vec<RecordBatch> = self
             .table
             .query()
-            .only_if(format!("file_path = '{}'", file_path))
+            .only_if(format!("file_path = '{}'", escape_sql_string(file_path)))
             .select(lancedb::query::Select::Columns(vec![
                 "content_hash".to_string(),
             ]))
@@ -231,7 +238,7 @@ impl ChunkStore {
     /// Delete all chunks for a given file path.
     pub async fn delete_chunks_for_file(&self, file_path: &str) -> Result<(), LocalIndexError> {
         self.table
-            .delete(&format!("file_path = '{}'", file_path))
+            .delete(&format!("file_path = '{}'", escape_sql_string(file_path)))
             .await
             .map_err(|e| LocalIndexError::Database(e.to_string()))?;
         Ok(())
