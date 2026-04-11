@@ -110,7 +110,7 @@ Accent reserved for: search submit button background, active nav link bottom-bor
 
 ```
 +----------------------------------------------------------+
-| [text input, full width                    ] [mode v] [Go]|
+| [text input, full width              ] [mode v] [Search Notes]|
 +----------------------------------------------------------+
 | Showing N results for "query" (hybrid mode)               |
 +----------------------------------------------------------+
@@ -123,7 +123,7 @@ Accent reserved for: search submit button background, active nav link bottom-bor
 +----------------------------------------------------------+
 ```
 
-- Search form: single row. Text input takes remaining width. Mode `<select>` (hybrid/semantic/fts) is 120px wide. Submit button "Search" is accent-colored.
+- Search form: single row. Text input takes remaining width. Mode `<select>` (hybrid/semantic/fts) is 120px wide. Submit button "Search Notes" is accent-colored.
 - Results summary line: 14px, secondary text color, below form with 16px gap.
 - Each result card: 1px border `#dadce0`, border-radius 4px, padding 16px, margin-bottom 12px.
 - Result card line 1: file path in monospace 14px as a plain text label + breadcrumb, right-aligned score badge.
@@ -218,7 +218,7 @@ Accent reserved for: search submit button background, active nav link bottom-bor
 |-------|-------|----------------|
 | Empty search (no query) | `/` | Search form only, no results section |
 | Search with results | `/search?q=foo` | Form pre-filled + results list |
-| Search with zero results | `/search?q=foo` | Form pre-filled + "No results found" message |
+| Search with zero results | `/search?q=foo` | Form pre-filled + "No matching notes found" message |
 | Empty index | `/index` | Empty state message (see Copywriting) |
 | Empty status (no data) | `/status` | All values show "0" or "never" |
 | Server error | Any route | 500 page with error message |
@@ -235,10 +235,10 @@ Accent reserved for: search submit button background, active nav link bottom-bor
 
 | Element | Copy |
 |---------|------|
-| Primary CTA | "Search" (submit button label) |
+| Primary CTA | "Search Notes" (submit button label) |
 | Search placeholder | `Search your notes...` |
 | Empty state heading (search, no query) | *No heading -- just show the search form* |
-| Empty state heading (search, zero results) | `No results found` |
+| Empty state heading (search, zero results) | `No matching notes found` |
 | Empty state body (search, zero results) | `No chunks matched your query. Try different keywords or switch to hybrid mode.` |
 | Empty state heading (index page) | `No documents indexed` |
 | Empty state body (index page) | `Run local-index index <path> to index your markdown vault.` |
