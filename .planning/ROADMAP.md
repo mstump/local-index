@@ -109,9 +109,9 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
-- [ ] 05-03: TBD
+- [ ] 05-01-PLAN.md — Foundation: askama deps, web module, AppState, dashboard router, serve command, base template
+- [ ] 05-02-PLAN.md — Search page: search handler with SearchEngine, search template with form/results/empty states
+- [ ] 05-03-PLAN.md — Index browser, status page with embedding stats, settings page
 
 ### Phase 6: Claude Code Integration
 **Goal**: Claude Code can invoke search, re-index, and status checks via skill files without human intervention
