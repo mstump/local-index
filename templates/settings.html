@@ -2,5 +2,13 @@
 {% block title %} -- Settings{% endblock %}
 {% block content %}
 <h2>Settings</h2>
-<p class="text-secondary mt-md">Settings page coming in Plan 03</p>
+<table class="kv-table">
+  <tbody>
+    <tr><td class="kv-label">Data Directory</td><td class="kv-value mono">{{ data_dir }}</td></tr>
+    <tr><td class="kv-label">Bind Address</td><td class="kv-value mono">{{ bind_addr }}</td></tr>
+    <tr><td class="kv-label">Embedding Provider</td><td class="kv-value mono">{{ embedding_provider }}</td></tr>
+    <tr><td class="kv-label">Credential Source</td><td class="kv-value mono">{{ credential_source }}</td></tr>
+    <tr><td class="kv-label">Log Level</td><td class="kv-value mono">{{ log_level }}</td></tr>
+  </tbody>
+</table>
 {% endblock %}

@@ -221,6 +221,79 @@
             -webkit-box-orient: vertical;
         }
 
+        /* Data tables (index browser) */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+        }
+        .data-table th {
+            background: #f5f5f5;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: left;
+            padding: 8px 16px;
+            border-bottom: 1px solid #dadce0;
+        }
+        .data-table td {
+            padding: 8px 16px;
+            border-bottom: 1px solid #dadce0;
+            font-size: 16px;
+        }
+        .col-number {
+            text-align: right;
+            width: 100px;
+        }
+        .table-summary {
+            font-size: 14px;
+            color: #5f6368;
+        }
+
+        /* Key-value tables (status, settings) */
+        .kv-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+        }
+        .kv-table tr:nth-child(odd) {
+            background: #ffffff;
+        }
+        .kv-table tr:nth-child(even) {
+            background: #f5f5f5;
+        }
+        .kv-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #5f6368;
+            padding: 12px 16px;
+            width: 200px;
+        }
+        .kv-value {
+            font-size: 16px;
+            color: #1a1a1a;
+            padding: 12px 16px;
+        }
+
+        /* Section heading (status page sections) */
+        .section-heading {
+            margin-top: 24px;
+            margin-bottom: 8px;
+        }
+
+        /* Warning color for non-zero queue/stale values */
+        .warning {
+            color: #ea8600;
+        }
+
+        /* Code inline */
+        code {
+            font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, "Courier New", monospace;
+            font-size: 14px;
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
         /* Empty state */
         .empty-state {
             text-align: center;

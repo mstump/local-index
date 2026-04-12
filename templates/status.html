@@ -2,5 +2,31 @@
 {% block title %} -- Status{% endblock %}
 {% block content %}
 <h2>Index Status</h2>
-<p class="text-secondary mt-md">Status dashboard coming in Plan 03</p>
+
+{% if total_chunks == 0 %}
+<div class="empty-state">
+  <h2>No index data</h2>
+  <p>The index is empty. Run <code>local-index index &lt;path&gt;</code> to get started.</p>
+</div>
+{% else %}
+<table class="kv-table">
+  <tbody>
+    <tr><td class="kv-label">Total Files</td><td class="kv-value mono">{{ total_files }}</td></tr>
+    <tr><td class="kv-label">Total Chunks</td><td class="kv-value mono">{{ total_chunks }}</td></tr>
+    <tr><td class="kv-label">Last Index Time</td><td class="kv-value mono">{{ last_index_time }}</td></tr>
+    <tr><td class="kv-label">Pending Queue</td><td class="kv-value mono{% if queue_depth > 0 %} warning{% endif %}">{{ queue_depth }}</td></tr>
+    <tr><td class="kv-label">Stale Files</td><td class="kv-value mono{% if stale_files > 0 %} warning{% endif %}">{{ stale_files }}</td></tr>
+  </tbody>
+</table>
+{% endif %}
+
+<h2 class="section-heading">Embedding Stats</h2>
+<table class="kv-table">
+  <tbody>
+    <tr><td class="kv-label">Model</td><td class="kv-value mono">{{ embedding_model }}</td></tr>
+    <tr><td class="kv-label">Total Embeddings</td><td class="kv-value mono">{{ total_embeddings }}</td></tr>
+    <tr><td class="kv-label">Dimensions</td><td class="kv-value mono">{{ embedding_dimensions }}</td></tr>
+    <tr><td class="kv-label">Token Usage</td><td class="kv-value mono">{{ token_usage }}</td></tr>
+  </tbody>
+</table>
 {% endblock %}
