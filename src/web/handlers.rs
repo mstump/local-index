@@ -5,6 +5,7 @@ use askama_web::WebTemplate;
 use axum::extract::{Query, State};
 use serde::Deserialize;
 
+use crate::search::{SearchEngine, SearchMode, SearchOptions};
 use crate::web::context::AppState;
 use crate::web::error::AppError;
 
@@ -34,14 +35,77 @@ pub struct SearchTemplate {
 }
 
 pub async fn search_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Query(params): Query<SearchParams>,
 ) -> Result<SearchTemplate, AppError> {
+    let mode_str = params.mode.unwrap_or_else(|| "hybrid".to_string());
+    let query = params.q.clone().unwrap_or_default();
+
+    // If no query, return empty form
+    if query.is_empty() {
+        return Ok(SearchTemplate {
+            query: None,
+            mode: mode_str,
+            results: vec![],
+            result_count: 0,
+            active_nav: "search",
+        });
+    }
+
+    // Parse mode string to SearchMode enum
+    let search_mode = match mode_str.as_str() {
+        "semantic" => SearchMode::Semantic,
+        "fts" => SearchMode::Fts,
+        _ => SearchMode::Hybrid,
+    };
+
+    // Construct SearchEngine per-request (cheap -- just two references)
+    let engine = SearchEngine::new(&state.store, &*state.embedder);
+
+    let opts = SearchOptions {
+        query: query.clone(),
+        limit: 20,
+        min_score: None,
+        mode: search_mode,
+        path_filter: None,
+        tag_filter: None,
+        context: 0,
+    };
+
+    let response = engine.search(&opts).await?;
+
+    let results: Vec<SearchResultView> = response
+        .results
+        .into_iter()
+        .filter(|r| r.is_context != Some(true))
+        .map(|r| {
+            // Truncate chunk text to ~300 chars for preview
+            let preview = if r.chunk_text.len() > 300 {
+                let mut end = 300;
+                // Don't cut in the middle of a multi-byte character
+                while !r.chunk_text.is_char_boundary(end) && end < r.chunk_text.len() {
+                    end += 1;
+                }
+                format!("{}...", &r.chunk_text[..end])
+            } else {
+                r.chunk_text.clone()
+            };
+            SearchResultView {
+                file_path: r.file_path,
+                heading_breadcrumb: r.heading_breadcrumb,
+                chunk_text: preview,
+                similarity_score: (r.similarity_score * 100.0).round() / 100.0,
+            }
+        })
+        .collect();
+
+    let result_count = results.len();
+
     Ok(SearchTemplate {
-        query: params.q,
-        mode: params.mode.unwrap_or_else(|| "hybrid".to_string()),
-        results: vec![],
-        result_count: 0,
+        query: Some(query),
+        mode: mode_str,
+        results,
+        result_count,
         active_nav: "search",
     })
 }
