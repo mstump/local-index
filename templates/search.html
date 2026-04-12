@@ -1,6 +1,40 @@
 {% extends "base.html" %}
 {% block title %} -- Search{% endblock %}
 {% block content %}
-<h2>Search</h2>
-<p class="text-secondary mt-md">Search UI coming in Plan 02</p>
+<form method="GET" action="/search" class="search-form">
+  <input
+    type="text"
+    name="q"
+    placeholder="Search your notes..."
+    value="{{ query.as_deref().unwrap_or_default() }}"
+    class="search-input"
+    aria-label="Search query"
+  >
+  <select name="mode" class="search-mode" aria-label="Search mode">
+    <option value="hybrid"{% if mode == "hybrid" %} selected{% endif %}>hybrid</option>
+    <option value="semantic"{% if mode == "semantic" %} selected{% endif %}>semantic</option>
+    <option value="fts"{% if mode == "fts" %} selected{% endif %}>fts</option>
+  </select>
+  <button type="submit" class="search-button">Search Notes</button>
+</form>
+
+{% if query.is_some() %}
+  {% if result_count > 0 %}
+    <p class="results-summary">Showing {{ result_count }} results for "{{ query.as_deref().unwrap_or_default() }}" ({{ mode }} mode)</p>
+    {% for result in results %}
+    <div class="result-card">
+      <div class="result-header">
+        <span class="result-path">{{ result.file_path }}{% if !result.heading_breadcrumb.is_empty() %} &rsaquo; {{ result.heading_breadcrumb }}{% endif %}</span>
+        <span class="result-score">{{ result.similarity_score }}</span>
+      </div>
+      <div class="result-body">{{ result.chunk_text }}</div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state">
+      <h2>No matching notes found</h2>
+      <p>No chunks matched your query. Try different keywords or switch to hybrid mode.</p>
+    </div>
+  {% endif %}
+{% endif %}
 {% endblock %}
