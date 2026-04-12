@@ -128,12 +128,25 @@ pub struct IndexTemplate {
 }
 
 pub async fn index_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
 ) -> Result<IndexTemplate, AppError> {
+    let file_counts = state.store.count_chunks_per_file().await?;
+    let total_chunks: usize = file_counts.iter().map(|(_, count)| count).sum();
+    let total_files = file_counts.len();
+
+    let files: Vec<IndexFileView> = file_counts
+        .into_iter()
+        .map(|(path, count)| IndexFileView {
+            file_path: path,
+            chunk_count: count,
+            last_indexed: "\u{2014}".to_string(),
+        })
+        .collect();
+
     Ok(IndexTemplate {
-        files: vec![],
-        total_files: 0,
-        total_chunks: 0,
+        files,
+        total_files,
+        total_chunks,
         active_nav: "index",
     })
 }
@@ -156,17 +169,20 @@ pub struct StatusTemplate {
 }
 
 pub async fn status_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
 ) -> Result<StatusTemplate, AppError> {
+    let total_chunks = state.store.count_total_chunks().await.unwrap_or(0);
+    let total_files = state.store.count_distinct_files().await.unwrap_or(0);
+
     Ok(StatusTemplate {
-        total_files: 0,
-        total_chunks: 0,
+        total_files,
+        total_chunks,
         last_index_time: "\u{2014}".to_string(),
         queue_depth: 0,
         stale_files: 0,
-        embedding_model: "voyage-3.5".to_string(),
-        embedding_dimensions: 1024,
-        total_embeddings: 0,
+        embedding_model: state.config.embedding_model.clone(),
+        embedding_dimensions: state.config.embedding_dimensions,
+        total_embeddings: total_chunks,
         token_usage: "N/A".to_string(),
         active_nav: "status",
     })

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use arrow_array::{
@@ -345,6 +345,40 @@ impl ChunkStore {
         }
 
         Ok(unique_paths.into_iter().collect())
+    }
+
+    /// Returns a sorted list of (file_path, chunk_count) for all files in the index.
+    pub async fn count_chunks_per_file(&self) -> Result<Vec<(String, usize)>, LocalIndexError> {
+        let batches: Vec<RecordBatch> = self
+            .table
+            .query()
+            .select(lancedb::query::Select::Columns(vec![
+                "file_path".to_string(),
+            ]))
+            .execute()
+            .await
+            .map_err(|e| LocalIndexError::Database(e.to_string()))?
+            .try_collect()
+            .await
+            .map_err(|e| LocalIndexError::Database(e.to_string()))?;
+
+        let mut counts: HashMap<String, usize> = HashMap::new();
+        for batch in &batches {
+            let col = batch
+                .column_by_name("file_path")
+                .and_then(|c| c.as_any().downcast_ref::<StringArray>());
+            if let Some(arr) = col {
+                for i in 0..arr.len() {
+                    if !arr.is_null(i) {
+                        *counts.entry(arr.value(i).to_string()).or_insert(0) += 1;
+                    }
+                }
+            }
+        }
+
+        let mut result: Vec<(String, usize)> = counts.into_iter().collect();
+        result.sort_by(|a, b| a.0.cmp(&b.0));
+        Ok(result)
     }
 
     /// Expose the underlying LanceDB table for search queries.
