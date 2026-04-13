@@ -124,7 +124,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 06-01-PLAN.md — Skill files (search, reindex, status), shell wrappers, README Claude Code Integration section
+- [x] 06-01-PLAN.md — Skill files (search, reindex, status), shell wrappers, README Claude Code Integration section
 
 ## Progress
 
