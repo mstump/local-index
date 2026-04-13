@@ -195,6 +195,18 @@ pub fn find_best_cutoff(
     best_pos
 }
 
+/// Round `pos` down to the nearest UTF-8 char boundary in `s`.
+fn floor_char_boundary(s: &str, pos: usize) -> usize {
+    if pos >= s.len() {
+        return s.len();
+    }
+    let mut p = pos;
+    while p > 0 && !s.is_char_boundary(p) {
+        p -= 1;
+    }
+    p
+}
+
 /// Split content into (start, end) byte position pairs using smart chunking.
 fn chunk_by_size(content: &str) -> Vec<(usize, usize)> {
     if content.len() <= CHUNK_SIZE_CHARS {
@@ -207,7 +219,7 @@ fn chunk_by_size(content: &str) -> Vec<(usize, usize)> {
     let mut char_pos = 0;
 
     while char_pos < content.len() {
-        let target_end = (char_pos + CHUNK_SIZE_CHARS).min(content.len());
+        let target_end = floor_char_boundary(content, (char_pos + CHUNK_SIZE_CHARS).min(content.len()));
 
         let end_pos = if target_end < content.len() {
             let best = find_best_cutoff(&breakpoints, target_end, CHUNK_WINDOW_CHARS, DECAY_FACTOR, &fences);
@@ -226,7 +238,7 @@ fn chunk_by_size(content: &str) -> Vec<(usize, usize)> {
             break;
         }
 
-        let next_start = end_pos.saturating_sub(CHUNK_OVERLAP_CHARS);
+        let next_start = floor_char_boundary(content, end_pos.saturating_sub(CHUNK_OVERLAP_CHARS));
         // Ensure forward progress
         if next_start <= char_pos {
             char_pos = end_pos;
