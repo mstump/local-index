@@ -109,9 +109,9 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 05-01-PLAN.md — Foundation: askama deps, web module, AppState, dashboard router, serve command, base template
-- [ ] 05-02-PLAN.md — Search page: search handler with SearchEngine, search template with form/results/empty states
-- [ ] 05-03-PLAN.md — Index browser, status page with embedding stats, settings page
+- [x] 05-01-PLAN.md — Foundation: askama deps, web module, AppState, dashboard router, serve command, base template
+- [x] 05-02-PLAN.md — Search page: search handler with SearchEngine, search template with form/results/empty states
+- [x] 05-03-PLAN.md — Index browser, status page with embedding stats, settings page
 
 ### Phase 6: Claude Code Integration
 **Goal**: Claude Code can invoke search, re-index, and status checks via skill files without human intervention
@@ -121,10 +121,10 @@ Plans:
   1. A `.claude/skills/search.md` skill file exists that enables Claude Code to invoke `local-index search` and parse JSON results
   2. Skill files for `reindex` and `status` exist and work correctly when invoked by Claude Code
   3. Shell wrapper scripts for search, reindex, and status are included in the repository and documented
-**Plans**: 3 plans
+**Plans**: 1 plan
 
 Plans:
-- [ ] 06-01: TBD
+- [ ] 06-01-PLAN.md — Skill files (search, reindex, status), shell wrappers, README Claude Code Integration section
 
 ## Progress
 
