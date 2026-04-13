@@ -21,7 +21,9 @@ target
 #.idea/
 
 .claude/settings.local.json
-.claude/
+.claude/worktrees/
+.claude/todos.md
+.claude/local_instructions.md
 
 # Local environment — never commit secrets
 .env
