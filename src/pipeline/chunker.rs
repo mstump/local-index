@@ -432,7 +432,7 @@ fn heading_level_to_u8(level: HeadingLevel) -> u8 {
 }
 
 fn byte_offset_to_line(content: &str, offset: usize) -> usize {
-    let clamped = offset.min(content.len());
+    let clamped = floor_char_boundary(content, offset.min(content.len()));
     content[..clamped].chars().filter(|&c| c == '\n').count() + 1
 }
 
