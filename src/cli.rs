@@ -90,6 +90,10 @@ pub enum Command {
         /// Output format
         #[arg(long, default_value = "json")]
         format: OutputFormat,
+
+        /// Disable result reranking when a reranker is configured (uses retrieval scores only)
+        #[arg(long = "no-rerank", default_value_t = false)]
+        no_rerank: bool,
     },
 
     /// Show index status and statistics

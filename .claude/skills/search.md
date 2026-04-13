@@ -13,12 +13,13 @@ fields without asking the user for format guidance.
 - `VOYAGE_API_KEY` environment variable set (required for semantic and hybrid modes)
 - Vault indexed at least once via `local-index index <path>`
 - Optional: `LOCAL_INDEX_DATA_DIR` if using a non-default data directory
+- Optional: `ANTHROPIC_API_KEY` enables result reranking (Claude); omit for retrieval-only scores
 
 ## Invocation
 
 ```sh
 local-index search "<QUERY>" [--limit N] [--min-score F] [--mode semantic|fts|hybrid] \
-  [--path-filter PATH_PREFIX] [--tag-filter TAG] [--context N] [--format json]
+  [--path-filter PATH_PREFIX] [--tag-filter TAG] [--context N] [--format json] [--no-rerank]
 ```
 
 `--format json` is the default and is required for machine-readable output.
@@ -33,6 +34,7 @@ local-index search "<QUERY>" [--limit N] [--min-score F] [--mode semantic|fts|hy
 | `--path-filter STR` | (none) | Restrict results to files whose path starts with this prefix |
 | `--tag-filter STR` | (none) | Restrict results to files with this frontmatter tag |
 | `--context N` | 0 | Include N surrounding chunks before/after each match for richer context |
+| `--no-rerank` | off | Skip reranking even when `ANTHROPIC_API_KEY` is set (retrieval order/scores only) |
 | `--data-dir PATH` | platform default | Override index data directory (env: `LOCAL_INDEX_DATA_DIR`) |
 
 ## Example Invocation
@@ -77,7 +79,8 @@ local-index search "how to configure git rebase" --limit 5 --mode hybrid
 
 ## Score Interpretation
 
-- **Hybrid RRF scores**: 0.01–0.10 is the typical range; scores above 0.05 are strong matches
+- **Hybrid RRF scores** (no rerank): 0.01–0.10 is the typical range; scores above 0.05 are strong matches
+- **After rerank** (`ANTHROPIC_API_KEY` set): `similarity_score` is rank-based (1.0 = top result)
 - **Semantic cosine scores**: 0.0–1.0; above 0.75 is a strong semantic match
 - **FTS scores**: rank-based; higher means more keyword overlap
 - Empty array `[]` means no results above the threshold — try lowering `--min-score` or broadening the query

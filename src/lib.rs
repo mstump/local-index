@@ -1,3 +1,4 @@
+pub mod claude_rerank;
 pub mod credentials;
 pub mod error;
 pub mod pipeline;

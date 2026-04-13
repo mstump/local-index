@@ -364,6 +364,7 @@ async fn main() -> Result<()> {
             tag_filter,
             context,
             format,
+            no_rerank,
         } => {
             tracing::info!(
                 query = %query,
@@ -374,6 +375,7 @@ async fn main() -> Result<()> {
                 tag_filter = ?tag_filter,
                 context = context,
                 format = ?format,
+                no_rerank = no_rerank,
                 "search command invoked"
             );
 
@@ -397,7 +399,9 @@ async fn main() -> Result<()> {
             let api_key = resolve_voyage_key()?;
             let embedder = VoyageEmbedder::new(api_key);
 
-            let engine = local_index::search::SearchEngine::new(&store, &embedder);
+            let reranker = local_index::claude_rerank::AnthropicReranker::try_from_env();
+            let engine = local_index::search::SearchEngine::new(&store, &embedder)
+                .with_anthropic_reranker(reranker);
 
             // Convert CLI SearchMode to library SearchMode
             let lib_mode = match mode {
@@ -414,6 +418,7 @@ async fn main() -> Result<()> {
                 path_filter: path_filter.clone(),
                 tag_filter: tag_filter.clone(),
                 context: *context,
+                rerank: !*no_rerank,
             };
 
             let response = engine.search(&opts).await?;

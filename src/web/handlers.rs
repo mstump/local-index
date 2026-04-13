@@ -15,6 +15,9 @@ use crate::web::error::AppError;
 pub struct SearchParams {
     pub q: Option<String>,
     pub mode: Option<String>,
+    /// When set (e.g. `1` or `true`), skip reranking even if a reranker is configured.
+    #[serde(default)]
+    pub no_rerank: Option<bool>,
 }
 
 pub struct SearchResultView {
@@ -59,8 +62,12 @@ pub async fn search_handler(
         _ => SearchMode::Hybrid,
     };
 
-    // Construct SearchEngine per-request (cheap -- just two references)
-    let engine = SearchEngine::new(&state.store, &*state.embedder);
+    let skip_rerank = params.no_rerank.unwrap_or(false);
+    let rerank = state.anthropic_reranker.is_some() && !skip_rerank;
+
+    // Construct SearchEngine per-request (cheap -- just references + optional reranker clone)
+    let engine = SearchEngine::new(&state.store, &*state.embedder)
+        .with_anthropic_reranker(state.anthropic_reranker.clone());
 
     let opts = SearchOptions {
         query: query.clone(),
@@ -70,6 +77,7 @@ pub async fn search_handler(
         path_filter: None,
         tag_filter: None,
         context: 0,
+        rerank,
     };
 
     let response = engine.search(&opts).await?;

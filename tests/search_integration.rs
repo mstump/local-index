@@ -143,6 +143,7 @@ async fn test_semantic_search() {
         path_filter: None,
         tag_filter: None,
         context: 0,
+        rerank: false,
     };
 
     let response = engine.search(&opts).await.unwrap();
@@ -184,6 +185,7 @@ async fn test_fts_search() {
         path_filter: None,
         tag_filter: None,
         context: 0,
+        rerank: false,
     };
 
     let response = engine.search(&opts).await.unwrap();
@@ -232,6 +234,7 @@ async fn test_hybrid_search() {
         path_filter: None,
         tag_filter: None,
         context: 0,
+        rerank: false,
     };
 
     let response = engine.search(&opts).await.unwrap();
@@ -265,6 +268,7 @@ async fn test_json_output_shape() {
         path_filter: None,
         tag_filter: None,
         context: 0,
+        rerank: false,
     };
 
     let response = engine.search(&opts).await.unwrap();
@@ -299,6 +303,7 @@ async fn test_limit_flag() {
         path_filter: None,
         tag_filter: None,
         context: 0,
+        rerank: false,
     };
 
     let response = engine.search(&opts).await.unwrap();
@@ -327,6 +332,7 @@ async fn test_path_filter() {
         path_filter: Some("notes/projects/".to_string()),
         tag_filter: None,
         context: 0,
+        rerank: false,
     };
 
     let response = engine.search(&opts).await.unwrap();
@@ -357,6 +363,7 @@ async fn test_tag_filter() {
         path_filter: None,
         tag_filter: Some("python".to_string()),
         context: 0,
+        rerank: false,
     };
 
     let response = engine.search(&opts).await.unwrap();
@@ -428,6 +435,7 @@ async fn test_context_chunks() {
         path_filter: None,
         tag_filter: None,
         context: 1, // Request 1 context chunk on each side
+        rerank: false,
     };
 
     let response = engine.search(&opts).await.unwrap();
@@ -480,6 +488,7 @@ async fn test_empty_index_returns_empty_response() {
         path_filter: None,
         tag_filter: None,
         context: 0,
+        rerank: false,
     };
 
     let response = engine.search(&opts).await.unwrap();

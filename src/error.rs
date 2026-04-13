@@ -16,6 +16,8 @@ pub enum LocalIndexError {
     Embedding(String),
     #[error("Database error: {0}")]
     Database(String),
+    #[error("Rerank error: {0}")]
+    Rerank(String),
 }
 
 impl LocalIndexError {
@@ -23,7 +25,7 @@ impl LocalIndexError {
     /// Applies to Embedding errors caused by rate limiting (429) or server errors (5xx).
     pub fn is_transient(&self) -> bool {
         match self {
-            LocalIndexError::Embedding(msg) => {
+            LocalIndexError::Embedding(msg) | LocalIndexError::Rerank(msg) => {
                 let lower = msg.to_lowercase();
                 lower.contains("429")
                     || lower.contains("500")

@@ -17,7 +17,8 @@ pub struct SearchResult {
     /// Heading hierarchy breadcrumb
     pub heading_breadcrumb: String,
     /// Primary similarity score (0.0-1.0, higher = more relevant)
-    /// In hybrid mode this is the normalized RRF score.
+    /// In hybrid mode this is the normalized RRF score (or rank-based scores
+    /// after Claude reranking when enabled).
     /// In single modes this copies the single-mode score.
     pub similarity_score: f64,
     /// Semantic (vector) score normalized to 0.0-1.0 (present in semantic/hybrid modes)
@@ -89,6 +90,9 @@ pub struct SearchOptions {
     pub tag_filter: Option<String>,
     /// Number of surrounding context chunks to include per result
     pub context: usize,
+    /// When true and a reranker is configured on `SearchEngine`, rerank retrieval
+    /// results before applying `limit` and `min_score`.
+    pub rerank: bool,
 }
 
 #[cfg(test)]

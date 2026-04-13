@@ -9,6 +9,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio_util::task::TaskTracker;
 
+use crate::claude_rerank::AnthropicReranker;
 use crate::credentials::resolve_voyage_key;
 use crate::pipeline::embedder::VoyageEmbedder;
 use crate::pipeline::store::ChunkStore;
@@ -48,10 +49,12 @@ pub async fn run_daemon(
         embedding_model: "voyage-3.5".to_string(),
         embedding_dimensions: 1024,
     });
+    let anthropic_reranker = AnthropicReranker::try_from_env();
     let app_state = Arc::new(AppState {
         store: Arc::clone(&store),
         embedder: Arc::clone(&embedder),
         config,
+        anthropic_reranker,
     });
 
     // 5. Set up shutdown coordination
@@ -136,7 +139,13 @@ pub async fn run_serve(bind_addr: String, data_dir: String, log_level: String) -
         embedding_model: "voyage-3.5".to_string(),
         embedding_dimensions: 1024,
     });
-    let app_state = Arc::new(AppState { store, embedder, config });
+    let anthropic_reranker = AnthropicReranker::try_from_env();
+    let app_state = Arc::new(AppState {
+        store,
+        embedder,
+        config,
+        anthropic_reranker,
+    });
 
     // 6. Build router and serve
     let app = http::app_router(prom_handle, app_state);

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::claude_rerank::AnthropicReranker;
 use crate::pipeline::embedder::VoyageEmbedder;
 use crate::pipeline::store::ChunkStore;
 
@@ -30,4 +31,5 @@ pub struct AppState {
     pub store: Arc<ChunkStore>,
     pub embedder: Arc<VoyageEmbedder>,
     pub config: Arc<DashboardConfig>,
+    pub anthropic_reranker: Option<AnthropicReranker>,
 }

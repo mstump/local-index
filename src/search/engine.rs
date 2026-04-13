@@ -10,6 +10,7 @@ use lancedb::query::{ExecutableQuery, QueryBase, Select};
 use lancedb::rerankers::rrf::RRFReranker;
 use lancedb::DistanceType;
 
+use crate::claude_rerank::AnthropicReranker;
 use crate::error::LocalIndexError;
 use crate::pipeline::embedder::Embedder;
 use crate::pipeline::store::ChunkStore;
@@ -20,28 +21,70 @@ use super::types::*;
 /// We fetch limit * TAG_OVERFETCH_MULTIPLIER results, then post-filter in Rust.
 const TAG_OVERFETCH_MULTIPLIER: usize = 3;
 
+/// Max candidates passed to Claude rerank (after tag filtering).
+fn rerank_pool_size(limit: usize) -> usize {
+    (limit.saturating_mul(4)).max(12).min(48)
+}
+
 /// Search engine that wraps ChunkStore + Embedder and dispatches queries
 /// through LanceDB's vector, FTS, and hybrid search APIs.
 pub struct SearchEngine<'a, E: Embedder> {
     store: &'a ChunkStore,
     embedder: &'a E,
+    anthropic_reranker: Option<AnthropicReranker>,
 }
 
 impl<'a, E: Embedder> SearchEngine<'a, E> {
     /// Create a new SearchEngine with references to the store and embedder.
     pub fn new(store: &'a ChunkStore, embedder: &'a E) -> Self {
-        Self { store, embedder }
+        Self {
+            store,
+            embedder,
+            anthropic_reranker: None,
+        }
+    }
+
+    /// Attach an optional Anthropic reranker (typically from [`AnthropicReranker::try_from_env`]).
+    pub fn with_anthropic_reranker(mut self, reranker: Option<AnthropicReranker>) -> Self {
+        self.anthropic_reranker = reranker;
+        self
+    }
+
+    fn retrieval_limit(&self, opts: &SearchOptions) -> usize {
+        let tag_mult = if opts.tag_filter.is_some() {
+            TAG_OVERFETCH_MULTIPLIER
+        } else {
+            1
+        };
+        let base = if self.anthropic_reranker.is_some() && opts.rerank {
+            rerank_pool_size(opts.limit)
+        } else {
+            opts.limit
+        };
+        base * tag_mult
     }
 
     /// Execute a search query, dispatching to the appropriate search mode.
     ///
     /// After getting results, applies min_score filter and context chunk fetching.
     pub async fn search(&self, opts: &SearchOptions) -> Result<SearchResponse, LocalIndexError> {
+        let fetch_limit = self.retrieval_limit(opts);
         let mut results = match opts.mode {
-            SearchMode::Semantic => self.semantic_search(opts).await?,
-            SearchMode::Fts => self.fts_search(opts).await?,
-            SearchMode::Hybrid => self.hybrid_search(opts).await?,
+            SearchMode::Semantic => self.semantic_search(opts, fetch_limit).await?,
+            SearchMode::Fts => self.fts_search(opts, fetch_limit).await?,
+            SearchMode::Hybrid => self.hybrid_search(opts, fetch_limit).await?,
         };
+
+        if let Some(ref reranker) = self.anthropic_reranker {
+            if opts.rerank && results.len() > 1 {
+                let pool = rerank_pool_size(opts.limit);
+                let take = results.len().min(pool);
+                let head: Vec<SearchResult> = results[..take].to_vec();
+                results = reranker.rerank(&opts.query, head).await?;
+            }
+        }
+
+        results.truncate(opts.limit);
 
         // Apply min_score filter
         if let Some(min_score) = opts.min_score {
@@ -77,6 +120,7 @@ impl<'a, E: Embedder> SearchEngine<'a, E> {
     async fn semantic_search(
         &self,
         opts: &SearchOptions,
+        fetch_limit: usize,
     ) -> Result<Vec<SearchResult>, LocalIndexError> {
         // Embed the query
         let embedding_result = self.embedder.embed(&[opts.query.clone()]).await?;
@@ -88,12 +132,6 @@ impl<'a, E: Embedder> SearchEngine<'a, E> {
                 LocalIndexError::Embedding("No embedding returned for query".to_string())
             })?;
 
-        let effective_limit = if opts.tag_filter.is_some() {
-            opts.limit * TAG_OVERFETCH_MULTIPLIER
-        } else {
-            opts.limit
-        };
-
         // Build vector query
         let mut query = self
             .store
@@ -102,7 +140,7 @@ impl<'a, E: Embedder> SearchEngine<'a, E> {
             .nearest_to(query_vec.as_slice())
             .map_err(|e| LocalIndexError::Database(e.to_string()))?
             .distance_type(DistanceType::Cosine)
-            .limit(effective_limit);
+            .limit(fetch_limit);
 
         // Apply path filter
         if let Some(ref path_filter) = opts.path_filter {
@@ -127,9 +165,6 @@ impl<'a, E: Embedder> SearchEngine<'a, E> {
             results.retain(|r| frontmatter_has_tag(&r.frontmatter, tag));
         }
 
-        // Truncate to limit
-        results.truncate(opts.limit);
-
         Ok(results)
     }
 
@@ -137,15 +172,10 @@ impl<'a, E: Embedder> SearchEngine<'a, E> {
     async fn fts_search(
         &self,
         opts: &SearchOptions,
+        fetch_limit: usize,
     ) -> Result<Vec<SearchResult>, LocalIndexError> {
         // Ensure FTS index exists
         self.ensure_fts_index().await?;
-
-        let effective_limit = if opts.tag_filter.is_some() {
-            opts.limit * TAG_OVERFETCH_MULTIPLIER
-        } else {
-            opts.limit
-        };
 
         // Build FTS query
         let mut query = self
@@ -153,7 +183,7 @@ impl<'a, E: Embedder> SearchEngine<'a, E> {
             .table()
             .query()
             .full_text_search(FullTextSearchQuery::new(opts.query.clone()))
-            .limit(effective_limit);
+            .limit(fetch_limit);
 
         // Apply path filter
         if let Some(ref path_filter) = opts.path_filter {
@@ -178,9 +208,6 @@ impl<'a, E: Embedder> SearchEngine<'a, E> {
             results.retain(|r| frontmatter_has_tag(&r.frontmatter, tag));
         }
 
-        // Truncate to limit
-        results.truncate(opts.limit);
-
         Ok(results)
     }
 
@@ -188,6 +215,7 @@ impl<'a, E: Embedder> SearchEngine<'a, E> {
     async fn hybrid_search(
         &self,
         opts: &SearchOptions,
+        fetch_limit: usize,
     ) -> Result<Vec<SearchResult>, LocalIndexError> {
         // Ensure FTS index exists
         self.ensure_fts_index().await?;
@@ -202,12 +230,6 @@ impl<'a, E: Embedder> SearchEngine<'a, E> {
                 LocalIndexError::Embedding("No embedding returned for query".to_string())
             })?;
 
-        let effective_limit = if opts.tag_filter.is_some() {
-            opts.limit * TAG_OVERFETCH_MULTIPLIER
-        } else {
-            opts.limit
-        };
-
         // Build hybrid query: FTS + vector + RRF reranker
         let mut query = self
             .store
@@ -218,7 +240,7 @@ impl<'a, E: Embedder> SearchEngine<'a, E> {
             .map_err(|e| LocalIndexError::Database(e.to_string()))?
             .distance_type(DistanceType::Cosine)
             .rerank(Arc::new(RRFReranker::new(60.0)))
-            .limit(effective_limit);
+            .limit(fetch_limit);
 
         // Apply path filter
         if let Some(ref path_filter) = opts.path_filter {
@@ -242,9 +264,6 @@ impl<'a, E: Embedder> SearchEngine<'a, E> {
         if let Some(ref tag) = opts.tag_filter {
             results.retain(|r| frontmatter_has_tag(&r.frontmatter, tag));
         }
-
-        // Truncate to limit
-        results.truncate(opts.limit);
 
         Ok(results)
     }
