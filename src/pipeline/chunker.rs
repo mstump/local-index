@@ -284,10 +284,20 @@ pub fn chunk_markdown(content: &str, file_path: &Path) -> Result<ChunkedFile, Lo
             }
             Event::End(TagEnd::MetadataBlock(MetadataBlockKind::YamlStyle)) => {
                 in_metadata = false;
-                match serde_yml::from_str::<Frontmatter>(&yaml_text) {
-                    Ok(fm) => frontmatter = fm,
-                    Err(e) => {
+                // serde_yml / libyml can panic on certain YAML inputs (e.g. oversized flow
+                // scalars triggering an overflow in libyml-0.0.5). Catch the panic so a
+                // single malformed file doesn't abort the whole index run.
+                let parse_result = std::panic::catch_unwind(|| {
+                    serde_yml::from_str::<Frontmatter>(&yaml_text)
+                });
+                match parse_result {
+                    Ok(Ok(fm)) => frontmatter = fm,
+                    Ok(Err(e)) => {
                         tracing::warn!(error = %e, "failed to parse YAML frontmatter; treating as content");
+                        frontmatter = Frontmatter::default();
+                    }
+                    Err(_) => {
+                        tracing::warn!("YAML frontmatter parser panicked (likely libyml bug on this input); treating as content");
                         frontmatter = Frontmatter::default();
                     }
                 }
