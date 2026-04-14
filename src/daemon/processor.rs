@@ -37,6 +37,7 @@ pub async fn run_event_processor<E: Embedder>(
             Some(events) = rx.recv() => {
                 let batch_start = Instant::now();
                 let mut chunks_processed: u64 = 0;
+                let mut needs_fts_rebuild = false;
 
                 for event in &events {
                     // Only process .md files
@@ -81,19 +82,23 @@ pub async fn run_event_processor<E: Embedder>(
                                             && old_path.strip_prefix(&vault_path).is_ok()
                                         {
                                             tracing::info!(
-                                                old = %old_path.display(),
-                                                new = %new_path.display(),
-                                                "rename detected, removing old path chunks"
+                                                event = "Renamed",
+                                                path = %old_path.strip_prefix(&vault_path).unwrap_or(old_path).display(),
+                                                renamed_to = %new_path.strip_prefix(&vault_path).unwrap_or(new_path).display(),
+                                                "file event"
                                             );
-                                            remove_file(old_path, &vault_path, &store).await;
+                                            needs_fts_rebuild |=
+                                                remove_file(old_path, &vault_path, &store).await;
                                         }
 
                                         // Index new path (if it is .md and in vault)
                                         if new_path.extension().map(|e| e == "md").unwrap_or(false)
                                             && new_path.strip_prefix(&vault_path).is_ok()
                                         {
-                                            let count = reindex_file(new_path, &vault_path, &store, &embedder).await;
+                                            let (count, modified) =
+                                                reindex_file(new_path, &vault_path, &store, &embedder).await;
                                             chunks_processed += count;
+                                            needs_fts_rebuild |= modified;
                                         }
 
                                         metrics::increment_file_events();
@@ -106,10 +111,12 @@ pub async fn run_event_processor<E: Embedder>(
                                             && old_path.strip_prefix(&vault_path).is_ok()
                                         {
                                             tracing::info!(
-                                                old = %old_path.display(),
-                                                "rename-from detected, removing old path chunks"
+                                                event = "Renamed",
+                                                path = %old_path.strip_prefix(&vault_path).unwrap_or(old_path).display(),
+                                                "file event"
                                             );
-                                            remove_file(old_path, &vault_path, &store).await;
+                                            needs_fts_rebuild |=
+                                                remove_file(old_path, &vault_path, &store).await;
                                             metrics::increment_file_events();
                                         }
                                     }
@@ -121,11 +128,14 @@ pub async fn run_event_processor<E: Embedder>(
                                             && new_path.strip_prefix(&vault_path).is_ok()
                                         {
                                             tracing::info!(
-                                                new = %new_path.display(),
-                                                "rename-to detected, indexing new path"
+                                                event = "Created",
+                                                path = %new_path.strip_prefix(&vault_path).unwrap_or(new_path).display(),
+                                                "file event"
                                             );
-                                            let count = reindex_file(new_path, &vault_path, &store, &embedder).await;
+                                            let (count, modified) =
+                                                reindex_file(new_path, &vault_path, &store, &embedder).await;
                                             chunks_processed += count;
+                                            needs_fts_rebuild |= modified;
                                             metrics::increment_file_events();
                                         }
                                     }
@@ -133,8 +143,10 @@ pub async fn run_event_processor<E: Embedder>(
                                 _ => {
                                     // RenameMode::Any or other -- treat as generic modify on all paths
                                     for path in &valid_paths {
-                                        let count = reindex_file(path, &vault_path, &store, &embedder).await;
+                                        let (count, modified) =
+                                            reindex_file(path, &vault_path, &store, &embedder).await;
                                         chunks_processed += count;
+                                        needs_fts_rebuild |= modified;
                                         metrics::increment_file_events();
                                     }
                                 }
@@ -143,9 +155,20 @@ pub async fn run_event_processor<E: Embedder>(
 
                         // WTCH-01, WTCH-03: Create and non-rename Modify events trigger re-indexing
                         EventKind::Create(_) | EventKind::Modify(_) => {
+                            let event_label = match &event.kind {
+                                EventKind::Create(_) => "Created",
+                                _ => "Modified",
+                            };
                             for path in &valid_paths {
-                                let count = reindex_file(path, &vault_path, &store, &embedder).await;
+                                tracing::info!(
+                                    event = event_label,
+                                    path = %path.strip_prefix(&vault_path).unwrap_or(path).display(),
+                                    "file event"
+                                );
+                                let (count, modified) =
+                                    reindex_file(path, &vault_path, &store, &embedder).await;
                                 chunks_processed += count;
+                                needs_fts_rebuild |= modified;
                                 metrics::increment_file_events();
                             }
                         }
@@ -153,7 +176,12 @@ pub async fn run_event_processor<E: Embedder>(
                         // WTCH-04: Remove events delete all chunks for the file
                         EventKind::Remove(_) => {
                             for path in &valid_paths {
-                                remove_file(path, &vault_path, &store).await;
+                                tracing::info!(
+                                    event = "Deleted",
+                                    path = %path.strip_prefix(&vault_path).unwrap_or(path).display(),
+                                    "file event"
+                                );
+                                needs_fts_rebuild |= remove_file(path, &vault_path, &store).await;
                                 metrics::increment_file_events();
                             }
                         }
@@ -171,13 +199,15 @@ pub async fn run_event_processor<E: Embedder>(
                     metrics::set_files_total(files as f64);
                 }
 
-                // Record throughput
-                if chunks_processed > 0 {
+                // Record throughput and rebuild FTS after any table mutation (including
+                // deletes with zero new embeddings, which previously skipped FTS rebuild).
+                if chunks_processed > 0 || needs_fts_rebuild {
                     let elapsed = batch_start.elapsed();
-                    let throughput = chunks_processed as f64 / elapsed.as_secs_f64();
-                    metrics::record_indexing_throughput(throughput);
+                    if chunks_processed > 0 {
+                        let throughput = chunks_processed as f64 / elapsed.as_secs_f64();
+                        metrics::record_indexing_throughput(throughput);
+                    }
 
-                    // Rebuild FTS index after changes
                     let engine = SearchEngine::new(&store, &embedder);
                     if let Err(e) = engine.ensure_fts_index().await {
                         tracing::warn!(error = %e, "failed to rebuild FTS index after daemon re-index");
@@ -188,13 +218,16 @@ pub async fn run_event_processor<E: Embedder>(
     }
 }
 
-/// Re-index a single file: read, chunk, embed, store. Returns number of chunks processed.
+/// Re-index a single file: read, chunk, embed, store.
+///
+/// Returns `(chunks_indexed, store_modified)` so callers can refresh FTS when rows were
+/// removed or rewritten even if no new embeddings were produced.
 async fn reindex_file<E: Embedder>(
     path: &Path,
     vault_path: &Path,
     store: &ChunkStore,
     embedder: &E,
-) -> u64 {
+) -> (u64, bool) {
     let relative = path.strip_prefix(vault_path).unwrap_or(path);
     let relative_str = relative.to_string_lossy().to_string();
 
@@ -206,7 +239,7 @@ async fn reindex_file<E: Embedder>(
         Err(e) => {
             tracing::warn!(file = %relative_str, error = %e, "failed to read file");
             metrics::increment_embedding_errors();
-            return 0;
+            return (0, false);
         }
     };
 
@@ -216,14 +249,21 @@ async fn reindex_file<E: Embedder>(
         Err(e) => {
             tracing::warn!(file = %relative_str, error = %e, "failed to chunk file");
             metrics::increment_embedding_errors();
-            return 0;
+            return (0, false);
         }
     };
 
     if chunked.chunks.is_empty() {
         // Delete any existing chunks for this file (file may have been emptied)
-        let _ = store.delete_chunks_for_file(&relative_str).await;
-        return 0;
+        let cleared = store.delete_chunks_for_file(&relative_str).await.is_ok();
+        tracing::info!(
+            path = %relative_str,
+            chunks_added = 0u64,
+            chunks_removed = 0u64,
+            chunks_skipped = 1u64,
+            "indexing outcome"
+        );
+        return (0, cleared);
     }
 
     // Embed
@@ -234,7 +274,7 @@ async fn reindex_file<E: Embedder>(
         Err(e) => {
             tracing::warn!(file = %relative_str, error = %e, "failed to embed file");
             metrics::increment_embedding_errors();
-            return 0;
+            return (0, false);
         }
     };
     metrics::record_embedding_latency(embed_start.elapsed());
@@ -243,8 +283,9 @@ async fn reindex_file<E: Embedder>(
     let hashes: Vec<String> = chunked.chunks.iter().map(|c| compute_content_hash(c)).collect();
 
     // Delete old + store new
-    if let Err(e) = store.delete_chunks_for_file(&relative_str).await {
-        tracing::warn!(file = %relative_str, error = %e, "failed to delete old chunks");
+    let del_ok = store.delete_chunks_for_file(&relative_str).await.is_ok();
+    if !del_ok {
+        tracing::warn!(file = %relative_str, "failed to delete old chunks before storing new rows");
     }
 
     let chunk_count = chunked.chunks.len() as u64;
@@ -254,29 +295,48 @@ async fn reindex_file<E: Embedder>(
     {
         Ok(()) => {
             metrics::increment_chunks_indexed(chunk_count);
-            tracing::info!(file = %relative_str, chunks = chunk_count, "re-indexed file");
-            chunk_count
+            tracing::info!(
+                path = %relative_str,
+                chunks_added = chunk_count,
+                chunks_removed = 0u64,
+                chunks_skipped = 0u64,
+                "indexing outcome"
+            );
+            (chunk_count, true)
         }
         Err(e) => {
             tracing::warn!(file = %relative_str, error = %e, "failed to store chunks");
             metrics::increment_embedding_errors();
-            0
+            (0, del_ok)
         }
     }
 }
 
-/// Remove all chunks for a deleted file.
-async fn remove_file(path: &Path, vault_path: &Path, store: &ChunkStore) {
+/// Remove all chunks for a deleted file. Returns whether the store reported a successful delete.
+async fn remove_file(path: &Path, vault_path: &Path, store: &ChunkStore) -> bool {
     let relative = path.strip_prefix(vault_path).unwrap_or(path);
     let relative_str = relative.to_string_lossy().to_string();
 
-    tracing::info!(file = %relative_str, "removing chunks for deleted file");
+    tracing::info!(path = %relative_str, "removing chunks for deleted file");
 
-    if let Err(e) = store.delete_chunks_for_file(&relative_str).await {
-        // Log only -- this is a store/database error, not an embedding error.
-        // Incrementing embedding_errors_total here would mislead operators into
-        // investigating the embedding pipeline when the real issue is the database.
-        tracing::warn!(file = %relative_str, error = %e, "failed to remove chunks for deleted file");
+    match store.delete_chunks_for_file(&relative_str).await {
+        Ok(()) => {
+            tracing::info!(
+                path = %relative_str,
+                chunks_added = 0u64,
+                chunks_removed = 1u64,
+                chunks_skipped = 0u64,
+                "indexing outcome"
+            );
+            true
+        }
+        Err(e) => {
+            // Log only -- this is a store/database error, not an embedding error.
+            // Incrementing embedding_errors_total here would mislead operators into
+            // investigating the embedding pipeline when the real issue is the database.
+            tracing::warn!(file = %relative_str, error = %e, "failed to remove chunks for deleted file");
+            false
+        }
     }
     // NOTE: do NOT call metrics::increment_file_events() here.
     // All callers of remove_file are responsible for incrementing the counter,
