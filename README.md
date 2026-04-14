@@ -14,36 +14,22 @@ Where local-index diverges: it uses **Voyage AI** for embeddings instead of loca
 
 ## Architecture
 
-```plain
-┌─────────────────────────────────────────────────────────────────┐
-│                         local-index                             │
-│                                                                 │
-│  ┌───────────┐   ┌──────────┐   ┌───────────┐   ┌───────────┐  │
-│  │  Walker    │──▶│ Chunker  │──▶│ Embedder  │──▶│ ChunkStore│  │
-│  │ (walkdir)  │   │(pulldown │   │(Voyage AI)│   │ (LanceDB) │  │
-│  │            │   │  -cmark) │   │           │   │           │  │
-│  └───────────┘   └──────────┘   └───────────┘   └─────┬─────┘  │
-│                                                        │        │
-│  ┌───────────────────────────────────────────────┐     │        │
-│  │               SearchEngine                    │◀────┘        │
-│  │  semantic · FTS · hybrid (RRF + opt. Claude)  │              │
-│  └──────────────┬────────────────────────────────┘              │
-│                 │                                                │
-│       ┌─────────┴──────────┐                                    │
-│       ▼                    ▼                                    │
-│  ┌─────────┐        ┌───────────┐                               │
-│  │   CLI   │        │ Web       │                               │
-│  │ (clap)  │        │ Dashboard │                               │
-│  │         │        │ (axum +   │                               │
-│  └─────────┘        │  askama)  │                               │
-│                     └───────────┘                               │
-│                                                                 │
-│  ┌──────────────┐   ┌────────────┐   ┌──────────────────────┐  │
-│  │ File Watcher │   │ Prometheus │   │ Claude Code Skills   │  │
-│  │ (notify +    │   │  /metrics  │   │ (.claude/skills/*.md)│  │
-│  │  debouncer)  │   │            │   │                      │  │
-│  └──────────────┘   └────────────┘   └──────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    FW["File Watcher\n(notify + debouncer)"]
+
+    subgraph Pipeline["Indexing Pipeline"]
+        direction LR
+        W["Walker\n(walkdir)"] --> C["Chunker\n(pulldown-cmark)"] --> E["Embedder\n(Voyage AI)"] --> CS[("ChunkStore\n(LanceDB)")]
+    end
+
+    FW --> W
+    CS --> SE["SearchEngine\nsemantic · FTS · hybrid\n(RRF + opt. Claude rerank)"]
+    SE --> CLI["CLI\n(clap)"]
+    SE --> HTTP["HTTP Server\n(axum + askama)"]
+    HTTP --> WD["Web Dashboard"]
+    HTTP --> PM["/metrics\n(Prometheus)"]
+    CCS["Claude Code Skills\n(.claude/skills/)"] -. invokes .-> CLI
 ```
 
 ### Pipeline

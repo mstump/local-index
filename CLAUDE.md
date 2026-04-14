@@ -218,7 +218,7 @@ Placeholder dependency groups (paste into `Cargo.toml` as TOML comments):
 <!-- GSD:conventions-start source:CONVENTIONS.md -->
 ## Conventions
 
-Conventions not yet established. Will populate as patterns emerge during development.
+- **Diagrams**: All diagrams must use Mermaid (` ```mermaid ` fenced blocks). Do not use ASCII box-drawing characters for diagrams in any `.md` file.
 <!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->

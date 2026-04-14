@@ -16,37 +16,32 @@ As of early 2025, Anthropic does NOT offer a first-party embeddings API. They pa
 
 ## System Overview
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                          CLI Layer (clap)                            │
-│  index ─── daemon ─── search ─── status ─── serve                   │
-├──────────────────────────────────────────────────────────────────────┤
-│                       Orchestration Layer                            │
-│  ┌──────────────┐  ┌───────────────┐  ┌──────────────────────────┐  │
-│  │  Indexer      │  │  Daemon       │  │  Search Service          │  │
-│  │  (one-shot)   │  │  (persistent) │  │  (query → results)       │  │
-│  └──────┬───────┘  └───────┬───────┘  └──────────┬───────────────┘  │
-│         │                  │                      │                  │
-├─────────┴──────────────────┴──────────────────────┴──────────────────┤
-│                        Pipeline Layer                                │
-│  ┌──────────┐  ┌───────────┐  ┌───────────┐  ┌────────────────┐    │
-│  │  Watcher  │  │  Chunker  │  │  Embedder │  │  Store (Lance) │    │
-│  │ (notify)  │→ │ (markdown)│→ │ (API)     │→ │  (read/write)  │    │
-│  └──────────┘  └───────────┘  └───────────┘  └────────────────┘    │
-│                                                                      │
-├──────────────────────────────────────────────────────────────────────┤
-│                        HTTP Layer (axum)                             │
-│  ┌──────────────┐  ┌────────────────┐  ┌────────────────────────┐   │
-│  │  Web UI       │  │  /metrics      │  │  /api/search           │   │
-│  │  (templates)  │  │  (prometheus)  │  │  (JSON endpoint)       │   │
-│  └──────────────┘  └────────────────┘  └────────────────────────┘   │
-│                                                                      │
-├──────────────────────────────────────────────────────────────────────┤
-│                     Cross-Cutting Concerns                           │
-│  ┌──────────┐  ┌───────────┐  ┌────────────┐  ┌──────────────┐     │
-│  │ tracing  │  │  metrics  │  │  config    │  │  credentials │     │
-│  └──────────┘  └───────────┘  └────────────┘  └──────────────┘     │
-└──────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph CLI_L["CLI Layer (clap)"]
+        cmds["index · daemon · search · status · serve"]
+    end
+    subgraph Orch["Orchestration Layer"]
+        IDX["Indexer (one-shot)"]
+        DMN["Daemon (persistent)"]
+        SS["Search Service (query → results)"]
+    end
+    subgraph PL["Pipeline Layer"]
+        direction LR
+        WT["Watcher (notify)"] --> CHK["Chunker (markdown)"] --> EMB["Embedder (API)"] --> STR["Store (LanceDB)"]
+    end
+    subgraph HTTP_L["HTTP Layer (axum)"]
+        direction LR
+        WUI["Web UI (templates)"] --- MET["/metrics (Prometheus)"] --- API["/api/search (JSON)"]
+    end
+    subgraph CC["Cross-Cutting Concerns"]
+        direction LR
+        TRC["tracing"] --- MTC["metrics"] --- CFG["config"] --- CRD["credentials"]
+    end
+
+    cmds --> IDX & DMN & SS
+    IDX & DMN --> PL
+    SS --> HTTP_L
 ```
 
 ## Component Responsibilities
@@ -211,73 +206,40 @@ match cli.command {
 
 ### Indexing Flow (Core Pipeline)
 
-```
-File System Event (create/modify/delete)
-    │
-    ▼
-Watcher (notify) ──filter──▶ only .md files
-    │
-    ▼ FileEvent { path, kind }
-    │
-Chunker
-    │ 1. Read file content
-    │ 2. Parse markdown headings
-    │ 3. Split into chunks (one per heading section)
-    │ 4. Compute content hash (for change detection)
-    │
-    ▼ ChunkBatch { file_path, chunks: Vec<Chunk> }
-    │
-Change Detector
-    │ 1. Query store for existing chunk hashes for this file
-    │ 2. Filter to only new/changed chunks
-    │ 3. Mark deleted chunks for removal
-    │
-    ▼ DirtyChunks { to_embed: Vec<Chunk>, to_delete: Vec<ChunkId> }
-    │
-Embedder (rate-limited)
-    │ 1. Acquire rate limiter permit
-    │ 2. Batch chunks (API supports batching)
-    │ 3. Call embedding API
-    │ 4. Record latency histogram
-    │
-    ▼ EmbeddedBatch { chunks: Vec<EmbeddedChunk> }
-    │
-Store Writer
-    │ 1. Upsert embedded chunks (overwrite by chunk_id)
-    │ 2. Delete removed chunks
-    │ 3. Update file-level metadata (last_indexed, chunk_count)
-    │ 4. Record write latency
-    │
-    ▼ LanceDB (on disk)
+```mermaid
+flowchart TD
+    FS["File System Event\n(create/modify/delete)"]
+    W["Watcher (notify)\nfilter → .md files only"]
+    C["Chunker\n1. Read file\n2. Parse headings\n3. Split into chunks\n4. Compute content hash"]
+    CD["Change Detector\n1. Query store for existing hashes\n2. Filter new/changed chunks\n3. Mark deleted chunks"]
+    E["Embedder (rate-limited)\n1. Acquire rate limiter permit\n2. Batch chunks\n3. Call embedding API\n4. Record latency histogram"]
+    SW["Store Writer\n1. Upsert embedded chunks\n2. Delete removed chunks\n3. Update file metadata\n4. Record write latency"]
+    DB[("LanceDB (on disk)")]
+
+    FS --> W
+    W -->|"FileEvent { path, kind }"| C
+    C -->|"ChunkBatch { file_path, chunks }"| CD
+    CD -->|"DirtyChunks { to_embed, to_delete }"| E
+    E -->|"EmbeddedBatch { chunks }"| SW
+    SW --> DB
 ```
 
 ### Search Flow
 
-```
-Query (CLI or HTTP)
-    │
-    ▼
-Search Service
-    │
-    ├──▶ Vector Search: embed query → LanceDB ANN search → top-k results
-    │
-    ├──▶ Full-Text Search: LanceDB full-text index → matching chunks
-    │
-    ▼ Merge & rank results
-    │
-    ▼ Format as JSON: { chunks: [{ text, file_path, score, context }] }
+```mermaid
+flowchart TD
+    Q["Query (CLI or HTTP)"] --> SS["Search Service"]
+    SS --> VS["Vector Search\nembed query → LanceDB ANN → top-k"]
+    SS --> FTS["Full-Text Search\nLanceDB FTS index → matching chunks"]
+    VS & FTS --> M["Merge & rank (RRF)"]
+    M --> OUT["JSON: { chunks: [{ text, file_path, score, context }] }"]
 ```
 
 ### Delete Flow
 
-```
-File Delete Event
-    │
-    ▼
-Watcher → Store Writer
-    │ DELETE FROM chunks WHERE file_path = ?
-    │
-    ▼ Done (no embedding needed)
+```mermaid
+flowchart LR
+    DEL["File Delete Event"] --> W["Watcher"] --> SW["Store Writer\nDELETE FROM chunks WHERE file_path = ?"] --> DONE["Done\n(no embedding needed)"]
 ```
 
 ## LanceDB Schema Design
@@ -329,28 +291,15 @@ LanceDB supports creating ANN (approximate nearest neighbor) indexes on vector c
 
 ### Tokio Runtime Layout (Daemon Mode)
 
-```
-tokio::runtime (multi-thread, default)
-    │
-    ├── Task: File Watcher (notify → channel)
-    │     Long-lived, blocks on notify events
-    │
-    ├── Task: Chunker
-    │     Receives FileEvent, emits ChunkBatch
-    │
-    ├── Task: Embedder (rate-limited)
-    │     Receives ChunkBatch, calls API, emits EmbeddedBatch
-    │     Uses governor for rate limiting
-    │
-    ├── Task: Store Writer
-    │     Receives EmbeddedBatch, writes to LanceDB
-    │
-    ├── Task: Axum HTTP Server
-    │     Handles /api/*, /metrics, web UI
-    │     Shares AppState via Arc
-    │
-    └── Task: Shutdown Coordinator
-          Listens for SIGTERM/SIGINT, broadcasts shutdown
+```mermaid
+flowchart TD
+    RT["tokio::runtime\n(multi-thread, default)"]
+    RT --> T1["File Watcher\n(notify → channel)\nLong-lived, blocks on notify events"]
+    RT --> T2["Chunker\nReceives FileEvent, emits ChunkBatch"]
+    RT --> T3["Embedder (rate-limited)\nReceives ChunkBatch, calls API\nUses governor for rate limiting"]
+    RT --> T4["Store Writer\nReceives EmbeddedBatch, writes to LanceDB"]
+    RT --> T5["Axum HTTP Server\nHandles /api/*, /metrics, web UI\nShares AppState via Arc"]
+    RT --> T6["Shutdown Coordinator\nListens for SIGTERM/SIGINT\nBroadcasts shutdown"]
 ```
 
 ### Graceful Shutdown
