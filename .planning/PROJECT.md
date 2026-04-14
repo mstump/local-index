@@ -8,9 +8,47 @@ A Rust daemon that watches a directory tree (initially an Obsidian vault), chunk
 
 Fast, accurate semantic search over a local markdown vault that Claude can query as a skill without any manual intervention.
 
+## Current Milestone: v1.1 — Search UX & Observability
+
+**Goal:** Make search results more useful and operational logs actually readable.
+
+**Target features:**
+- Web UI: reranking toggle (expose Claude reranking in search UI)
+- Web UI: highlight matching words/phrases in result snippets
+- Logging: log search queries with mode, result count, and latency
+- Logging: log daemon file events (creates, modifies, renames, deletes) with indexing outcomes
+- Logging: suppress noisy LanceDB internal messages (full source paths)
+
+---
+
 ## Requirements
 
 ### Validated
+
+**Phase 6: Claude Code Integration** (validated 2026-04-13)
+
+- [x] Claude Code skill files for search, reindex, and status (`.claude/skills/`)
+- [x] Documented shell wrapper scripts for search, reindex, and status
+- [x] README section documenting Claude Code integration
+
+**Phase 5: Web Dashboard** (validated 2026-04-12)
+
+- [x] axum HTTP server on configurable port (default 3000), binds 127.0.0.1, `--bind` flag
+- [x] Search UI: text input, mode selector, results with chunk text, file path, breadcrumb, score
+- [x] Index browser: all indexed files with per-file chunk count and last-indexed timestamp
+- [x] Index status view: total chunks/files, last full-index time, queue depth, stale count
+- [x] Embedding stats view: total embeddings, model ID, estimated token usage
+- [x] Read-only settings view: current config values, credential source, active flags
+
+**Phase 4: Daemon Mode & Observability** (validated 2026-04-10)
+
+- [x] `local-index daemon <path>` watches for file create/modify/rename/delete events
+- [x] File rename → delete old path + index new path; file delete → remove all chunks for that file
+- [x] File watcher, embedding pipeline, and HTTP server run concurrently in single tokio runtime
+- [x] Graceful shutdown via broadcast channel on SIGINT/SIGTERM
+- [x] `local-index status` shows total chunks/files, last index time, queue depth, stale count
+- [x] `/metrics` Prometheus endpoint with HDR histograms for embedding, indexing, search, HTTP latency
+- [x] Counter metrics (chunks indexed, API errors, file events, search queries) and gauge metrics (queue depth, chunk/file totals)
 
 **Phase 3: Search** (validated 2026-04-10)
 
@@ -39,61 +77,26 @@ Fast, accurate semantic search over a local markdown vault that Claude can query
 - [x] YAML frontmatter parsing with heading breadcrumb extraction
 - [x] `tracing` structured logging with RUST_LOG and --log-level support
 
-### Active
+### Active (v1.1)
 
-**Indexing**
+**Web UI**
 
-- [ ] Watch a directory tree recursively for file create/modify/move/delete events
-- [ ] Chunk markdown files by heading (each heading section = one embedding unit)
-- [ ] Embed chunks via Anthropic embeddings API
-- [ ] Store chunks + embeddings in embedded LanceDB database
-- [ ] Support one-shot indexing mode (`--index`) and persistent daemon mode (`--daemon`)
-- [ ] Incremental updates: only re-embed chunks that changed, skip unchanged
+- [ ] Search UI exposes a "Rerank results" checkbox; when checked, backend is called with `rerank=true`; results show a "(reranked)" indicator; checkbox disabled when `ANTHROPIC_API_KEY` is absent
+- [ ] Search result snippets highlight all query terms (case-insensitive, word boundary) using `<mark>` elements in the displayed chunk_text
 
-**Search**
+**Logging**
 
-- [ ] Full-text search over chunk content
-- [ ] Semantic (vector) search over embeddings
-- [ ] Structured JSON results: chunk text, file path (vault-relative), similarity score, surrounding context lines
-- [ ] CLI command: `local-index search "<query>"` with configurable result count and score threshold
-
-**Credentials & Config**
-
-- [ ] Credential resolution: `ANTHROPIC_API_KEY` env var first, fall back to `~/.claude/` credential store
-- [ ] All settings via CLI flags (clap + derive), `.env` file, and environment variables — no config file UI
-
-**Observability**
-
-- [ ] Prometheus metrics endpoint (`/metrics`) on the HTTP server
-- [ ] HDR histograms (or equivalent) for all latency-sensitive operations: Anthropic API calls, file indexing, search queries, WebUI requests
-- [ ] `tracing` crate for structured logging throughout
-
-**WebUI**
-
-- [ ] Search UI: query input, ranked results with snippets and file paths
-- [ ] Index browser: list indexed files, per-file chunk count, last-indexed timestamp
-- [ ] Index status: total chunks, total files, last full-index time, pending queue depth
-- [ ] Embedding stats: embedding count, model used, estimated token usage
-- [ ] Read-only settings view (current config, credential source, active flags)
-- [ ] Served on configurable port (default: 3000) by the same process
-
-**Skills / Claude Integration**
-
-- [ ] Claude Code skill files (`.claude/skills/`) for: search, re-index, status
-- [ ] Documented shell wrapper scripts for the same operations
-
-**CLI**
-
-- [ ] `clap` with derive macros for all commands and flags
-- [ ] Subcommands: `index`, `daemon`, `search`, `status`, `serve`
+- [ ] Every search query logged at INFO with fields: `query`, `mode`, `results_returned`, `latency_ms`
+- [ ] Daemon file-watcher events logged at INFO with fields: event type, path, renamed_to (renames); indexing outcome (chunks added/removed/skipped) logged after each event
+- [ ] LanceDB internal tracing suppressed below WARN via EnvFilter (`lancedb=warn,lance=warn`), removing verbose source-path noise without losing actionable warnings
 
 ### Out of Scope
 
-- PDF support — deferred to v2; requires different extraction pipeline
-- Remote/cloud LanceDB — embedded only for v1; keeps deployment simple
-- Authentication on the WebUI — local tool, no auth needed for v1
+- PDF support — deferred; requires different extraction pipeline (see SEED-001)
+- Remote/cloud LanceDB — embedded only; keeps deployment simple
+- Authentication on the WebUI — local tool, no auth needed
 - Settings UI in the WebUI — all config via CLI/.env; read-only view is sufficient
-- Multi-vault support — single directory root per daemon instance in v1
+- Multi-vault support — single directory root per daemon instance
 
 ## Context
 
@@ -122,9 +125,9 @@ Fast, accurate semantic search over a local markdown vault that Claude can query
 | Voyage AI for embeddings            | voyage-3.5 chosen over Anthropic; 1024 dims, better retrieval quality | Validated Phase 2 — VOYAGE_API_KEY env var, 50/batch, 5x retry |
 | Env var preferred for credentials   | Explicit over implicit; simpler than ~/.claude/ JSON parsing           | Validated Phase 2 — VOYAGE_API_KEY only, clear error on missing |
 | Single binary, embedded LanceDB     | Zero deployment friction; no separate database process                | Validated Phase 2 — 10-col Arrow schema, hash-based incremental indexing |
-| Both daemon + one-shot modes        | Daemon for real-time watching; one-shot for CI/manual re-index        | — Pending (Phase 4+) |
-| Prometheus + HDR histograms         | Standard observability; histograms capture tail latency for API calls | — Pending (Phase 4) |
-| Claude Code skills + shell wrappers | Skills for Claude integration; shell wrappers for humans and scripts  | — Pending (Phase 6) |
+| Both daemon + one-shot modes        | Daemon for real-time watching; one-shot for CI/manual re-index        | Validated Phase 4 — notify + debouncer, tokio runtime, graceful shutdown |
+| Prometheus + HDR histograms         | Standard observability; histograms capture tail latency for API calls | Validated Phase 4 — /metrics endpoint, HDR histograms, 4 counter + 4 gauge metrics |
+| Claude Code skills + shell wrappers | Skills for Claude integration; shell wrappers for humans and scripts  | Validated Phase 6 — search/reindex/status skills + wrappers in repo |
 
 ## Evolution
 
@@ -146,4 +149,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-10 after Phase 3 completion — search (semantic/FTS/hybrid) validated*
+*Last updated: 2026-04-14 — v1.0 complete (all 6 phases), v1.1 milestone started*

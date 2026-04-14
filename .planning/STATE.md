@@ -1,36 +1,36 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: complete
-stopped_at: Completed 06-01-PLAN.md
+milestone: v1.1
+milestone_name: Search UX & Observability
+status: planning
+stopped_at: ~
 last_updated: "2026-04-14T00:00:00.000Z"
-last_activity: 2026-04-13 -- Phase 06 complete, v1.0 milestone finished
+last_activity: 2026-04-14 -- Milestone v1.1 started
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 15
-  completed_plans: 15
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-08)
+See: .planning/PROJECT.md (updated 2026-04-14)
 
 **Core value:** Fast, accurate semantic search over a local markdown vault that Claude can query as a skill without any manual intervention.
-**Current focus:** v1.0 milestone complete
+**Current focus:** v1.1 — Search UX & Observability (defining requirements)
 
 ## Current Position
 
-Phase: 06 (claude-code-integration) — COMPLETE
-Plan: 1 of 1
-Status: v1.0 milestone complete — all 6 phases delivered
-Last activity: 2026-04-13 -- Phase 06 complete, v1.0 milestone finished
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-14 — Milestone v1.1 started
 
-Progress: [██████████] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
