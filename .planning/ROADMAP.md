@@ -112,7 +112,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 07-01-PLAN.md — Search query logging, daemon event logging, LanceDB noise suppression
+- [x] 07-01-PLAN.md — Search query logging, daemon event logging, LanceDB noise suppression
 
 ### Phase 8: Search UX Enhancements
 **Goal**: The web search UI surfaces reranking controls and highlights matching terms so operators find relevant results faster
@@ -140,5 +140,5 @@ Plans:
 | 4. Daemon Mode & Observability | v1.0 | 3/3 | Complete | 2026-04-10 |
 | 5. Web Dashboard | v1.0 | 3/3 | Complete | 2026-04-12 |
 | 6. Claude Code Integration | v1.0 | 1/1 | Complete | 2026-04-13 |
-| 7. Operational Logging | v1.1 | 0/? | Not started | - |
+| 7. Operational Logging | v1.1 | 1/1 | Complete   | 2026-04-14 |
 | 8. Search UX Enhancements | v1.1 | 0/? | Not started | - |

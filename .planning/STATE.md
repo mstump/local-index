@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Search UX & Observability
-status: executing
-stopped_at: context exhaustion at 90% (2026-04-14)
-last_updated: "2026-04-14T18:27:52.042Z"
-last_activity: 2026-04-14 -- Phase 7 planning complete
+status: verifying
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-04-14T18:36:55.128Z"
+last_activity: 2026-04-14
 progress:
   total_phases: 8
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 1
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 100
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-14)
 
 **Core value:** Fast, accurate semantic search over a local markdown vault that Claude can query as a skill without any manual intervention.
-**Current focus:** v1.1 Phase 7 — Operational Logging
+**Current focus:** Phase 07 — operational-logging
 
 ## Current Position
 
-Phase: 7 of 8 (Operational Logging)
-Plan: — (not yet planned)
-Status: Ready to execute
-Last activity: 2026-04-14 -- Phase 7 planning complete
+Phase: 07 (operational-logging) — EXECUTING
+Plan: 1 of 1
+Status: Phase complete — ready for verification
+Last activity: 2026-04-14
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -59,6 +59,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02 P03 | 40min | 2 tasks | 2 files |
 | Phase 03 P01 | 19min | 2 tasks | 6 files |
 | Phase 03 P02 | 8min | 3 tasks | 4 files |
+| Phase 07-operational-logging P01 | 323 | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,8 @@ Recent decisions affecting current work:
 - [Phase 03]: Tag filter uses 3x over-fetch + post-query Rust filtering (no JSON path in LanceDB SQL)
 - [Phase 05]: askama compile-time templates for all dashboard pages
 - [v1.1 roadmap]: Two phases — logging first (Phase 7), then UI enhancements (Phase 8)
+- [Phase 07-operational-logging]: Web handler emits 'web search completed' distinct from engine-level 'search completed' to identify search origin in logs
+- [Phase 07-operational-logging]: LanceDB suppression (lancedb=warn,lance=warn) applied only in EnvFilter fallback; RUST_LOG override fully respected
 
 ### Pending Todos
 
@@ -83,6 +86,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-14T18:20:30.207Z
-Stopped at: context exhaustion at 90% (2026-04-14)
+Last session: 2026-04-14T18:36:55.122Z
+Stopped at: Completed 07-01-PLAN.md
 Resume file: None

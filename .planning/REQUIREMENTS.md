@@ -87,9 +87,9 @@
 
 ### Logging
 
-- [ ] **LOG-01**: Every search query is logged at INFO level with structured fields: `query`, `mode`, `results_returned`, `latency_ms`
-- [ ] **LOG-02**: Daemon file-watcher events are logged at INFO level with fields: `event` (Created/Modified/Renamed/Deleted), `path`, and `renamed_to` (rename events only); indexing outcome (chunks added/removed/skipped) logged after each event is processed
-- [ ] **LOG-03**: LanceDB internal tracing output is suppressed below WARN via `EnvFilter` directive (`lancedb=warn,lance=warn`), removing verbose source-path messages without losing actionable warnings
+- [x] **LOG-01**: Every search query is logged at INFO level with structured fields: `query`, `mode`, `results_returned`, `latency_ms`
+- [x] **LOG-02**: Daemon file-watcher events are logged at INFO level with fields: `event` (Created/Modified/Renamed/Deleted), `path`, and `renamed_to` (rename events only); indexing outcome (chunks added/removed/skipped) logged after each event is processed
+- [x] **LOG-03**: LanceDB internal tracing output is suppressed below WARN via `EnvFilter` directive (`lancedb=warn,lance=warn`), removing verbose source-path messages without losing actionable warnings
 
 ---
 
@@ -190,9 +190,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LOG-01 | Phase 7 | Pending |
-| LOG-02 | Phase 7 | Pending |
-| LOG-03 | Phase 7 | Pending |
+| LOG-01 | Phase 7 | Complete |
+| LOG-02 | Phase 7 | Complete |
+| LOG-03 | Phase 7 | Complete |
 | WEB-07 | Phase 8 | Pending |
 | WEB-08 | Phase 8 | Pending |
 
