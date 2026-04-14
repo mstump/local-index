@@ -109,10 +109,10 @@ Plans:
   1. Running a search query (CLI or web) produces an INFO log line containing the query text, search mode, number of results returned, and latency in milliseconds
   2. When the daemon processes a file event (create, modify, rename, delete), an INFO log line appears with the event type, file path, and (for renames) the destination path; a follow-up log line shows the indexing outcome (chunks added, removed, or skipped)
   3. Running the daemon with default RUST_LOG settings produces no LanceDB/Lance internal trace messages (verbose source file paths, internal spans); setting RUST_LOG=lancedb=debug restores them on demand
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 07-01: TBD
+- [ ] 07-01-PLAN.md — Search query logging, daemon event logging, LanceDB noise suppression
 
 ### Phase 8: Search UX Enhancements
 **Goal**: The web search UI surfaces reranking controls and highlights matching terms so operators find relevant results faster
@@ -122,7 +122,7 @@ Plans:
   1. The search page shows a "Rerank results" checkbox; checking it and searching sends rerank=true to the backend; results display a "(reranked)" badge; when ANTHROPIC_API_KEY is not set, the checkbox is visually disabled with a tooltip explaining why
   2. After searching, every occurrence of each query term in result snippets is wrapped in a visible highlight (case-insensitive, word-boundary aware); multi-word queries highlight each term independently
   3. Highlighting does not break HTML entities or inject raw HTML from user input (query terms are escaped before insertion into markup)
-**Plans**: TBD
+**Plans**: 1 plan
 **UI hint**: yes
 
 Plans:
