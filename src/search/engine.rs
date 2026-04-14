@@ -68,6 +68,7 @@ impl<'a, E: Embedder> SearchEngine<'a, E> {
     ///
     /// After getting results, applies min_score filter and context chunk fetching.
     pub async fn search(&self, opts: &SearchOptions) -> Result<SearchResponse, LocalIndexError> {
+        let search_start = std::time::Instant::now();
         let fetch_limit = self.retrieval_limit(opts);
         let mut results = match opts.mode {
             SearchMode::Semantic => self.semantic_search(opts, fetch_limit).await?,
@@ -96,12 +97,23 @@ impl<'a, E: Embedder> SearchEngine<'a, E> {
             self.fetch_context_chunks(&mut results, opts.context).await?;
         }
 
-        Ok(SearchResponse {
+        let response = SearchResponse {
             query: opts.query.clone(),
             mode: opts.mode.to_string(),
             total: results.len(),
             results,
-        })
+        };
+
+        let elapsed = search_start.elapsed();
+        tracing::info!(
+            query = %opts.query,
+            mode = %opts.mode,
+            results_returned = response.total,
+            latency_ms = elapsed.as_millis() as u64,
+            "search completed"
+        );
+
+        Ok(response)
     }
 
     /// Ensure the FTS index exists on the body column.

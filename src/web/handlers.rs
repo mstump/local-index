@@ -55,6 +55,8 @@ pub async fn search_handler(
         });
     }
 
+    let search_start = std::time::Instant::now();
+
     // Parse mode string to SearchMode enum
     let search_mode = match mode_str.as_str() {
         "semantic" => SearchMode::Semantic,
@@ -81,6 +83,15 @@ pub async fn search_handler(
     };
 
     let response = engine.search(&opts).await?;
+
+    let elapsed = search_start.elapsed();
+    tracing::info!(
+        query = %query,
+        mode = %mode_str,
+        results_returned = response.total,
+        latency_ms = elapsed.as_millis() as u64,
+        "web search completed"
+    );
 
     let results: Vec<SearchResultView> = response
         .results
