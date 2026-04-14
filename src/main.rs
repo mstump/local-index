@@ -13,9 +13,10 @@ use std::io::IsTerminal;
 use tracing_subscriber::{fmt, EnvFilter};
 
 fn init_logging(log_level: &str) {
-    // RUST_LOG takes precedence if set; otherwise use --log-level
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(log_level));
+    // RUST_LOG takes precedence if set; otherwise use --log-level with LanceDB noise suppressed
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        EnvFilter::new(format!("{},lancedb=warn,lance=warn", log_level))
+    });
 
     fmt()
         .with_env_filter(filter)
@@ -76,29 +77,14 @@ async fn main() -> Result<()> {
 
             // Step 6: Walk and discover files
             let files = discover_markdown_files(&vault_path);
-
-            if files.is_empty() {
-                tracing::warn!("no markdown files found in vault");
-                let is_tty = std::io::stdout().is_terminal();
-                if is_tty {
-                    println!("Indexed 0 files | 0 chunks embedded | 0 skipped | 0 errors");
-                } else {
-                    let summary = serde_json::json!({
-                        "files_indexed": 0,
-                        "chunks_embedded": 0,
-                        "chunks_skipped": 0,
-                        "errors": 0
-                    });
-                    println!("{}", serde_json::to_string(&summary)?);
-                }
-                return Ok(());
-            }
-
             let total_files = files.len();
+            if total_files == 0 {
+                tracing::warn!("no markdown files found in vault");
+            }
 
             // Step 7: Create progress reporting
             let is_tty = std::io::stdout().is_terminal();
-            let pb = if is_tty {
+            let pb = if is_tty && total_files > 0 {
                 let pb = ProgressBar::new(total_files as u64);
                 pb.set_style(
                     ProgressStyle::default_bar()
@@ -116,6 +102,7 @@ async fn main() -> Result<()> {
             let mut chunks_embedded: usize = 0;
             let mut chunks_skipped: usize = 0;
             let mut error_count: usize = 0;
+            let mut cleared_empty_files = false;
 
             for (file_index, file_path) in files.iter().enumerate() {
                 let content = match std::fs::read_to_string(file_path) {
@@ -152,6 +139,14 @@ async fn main() -> Result<()> {
                 let all_file_chunks = chunked_file.chunks;
 
                 if all_file_chunks.is_empty() {
+                    if store.delete_chunks_for_file(&relative_path_str).await.is_ok() {
+                        cleared_empty_files = true;
+                    } else {
+                        tracing::warn!(
+                            file = %relative_path_str,
+                            "failed to delete chunks for file that produced no chunks"
+                        );
+                    }
                     file_count += 1;
                     if let Some(ref pb) = pb {
                         pb.set_message(format!("{} (empty)", relative_path_str));
@@ -296,6 +291,10 @@ async fn main() -> Result<()> {
                 }
             }
 
+            let pruned_orphans = store
+                .prune_absent_markdown_files(&vault_path, &files)
+                .await?;
+
             // Step 9: Finish and output summary
             if let Some(pb) = &pb {
                 pb.finish_and_clear();
@@ -303,15 +302,16 @@ async fn main() -> Result<()> {
 
             if is_tty {
                 println!(
-                    "Indexed {} files | {} chunks embedded | {} skipped | {} errors",
-                    file_count, chunks_embedded, chunks_skipped, error_count
+                    "Indexed {} files | {} chunks embedded | {} skipped | {} errors | {} orphan files removed",
+                    file_count, chunks_embedded, chunks_skipped, error_count, pruned_orphans
                 );
             } else {
                 let summary = serde_json::json!({
                     "files_indexed": file_count,
                     "chunks_embedded": chunks_embedded,
                     "chunks_skipped": chunks_skipped,
-                    "errors": error_count
+                    "errors": error_count,
+                    "orphan_files_removed": pruned_orphans
                 });
                 println!("{}", serde_json::to_string(&summary)?);
             }
@@ -321,11 +321,12 @@ async fn main() -> Result<()> {
                 chunks_embedded = chunks_embedded,
                 chunks_skipped = chunks_skipped,
                 errors = error_count,
+                orphan_files_removed = pruned_orphans,
                 "indexing complete"
             );
 
             // Create/refresh FTS index for search command
-            if chunks_embedded > 0 {
+            if chunks_embedded > 0 || pruned_orphans > 0 || cleared_empty_files {
                 tracing::info!("creating FTS index for search");
                 let engine = local_index::search::SearchEngine::new(&store, &embedder);
                 if let Err(e) = engine.ensure_fts_index().await {
