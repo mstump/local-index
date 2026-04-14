@@ -8,10 +8,10 @@
 ### CLI & Configuration
 
 - [x] **CLI-01**: Operator can run `local-index index <path>` to perform a one-shot full index of a directory tree and exit on completion
-- [ ] **CLI-02**: Operator can run `local-index daemon <path>` to start a persistent background process that watches for file changes and indexes them in real time
+- [x] **CLI-02**: Operator can run `local-index daemon <path>` to start a persistent background process that watches for file changes and indexes them in real time
 - [x] **CLI-03**: Operator can run `local-index search "<query>"` to perform a search and receive structured JSON results on stdout
-- [ ] **CLI-04**: Operator can run `local-index status` to see total indexed chunks/files, last index time, pending queue depth, and stale file count
-- [ ] **CLI-05**: Operator can run `local-index serve` to start the HTTP server (web dashboard + metrics) without the file watcher
+- [x] **CLI-04**: Operator can run `local-index status` to see total indexed chunks/files, last index time, pending queue depth, and stale file count
+- [x] **CLI-05**: Operator can run `local-index serve` to start the HTTP server (web dashboard + metrics) without the file watcher
 - [x] **CLI-06**: All CLI commands and flags are implemented with `clap` derive macros and provide useful `--help` output with examples
 - [x] **CLI-07**: All settings are configurable via CLI flags, `.env` file, and environment variables — no config file required for basic operation
 - [x] **CLI-08**: CLI emits structured logging via the `tracing` crate; log level configurable via `RUST_LOG` or `--log-level` flag
@@ -27,24 +27,24 @@
 - [x] **INDX-01**: Indexer walks a directory tree recursively and processes all `.md` files; non-markdown files are skipped with a trace log
 - [x] **INDX-02**: Markdown files are chunked by heading: each heading section (heading + its body text) becomes one embedding unit; heading hierarchy is preserved as a breadcrumb (e.g., `## Goals > ### Q1`)
 - [x] **INDX-03**: YAML frontmatter is stripped from chunk text before embedding but stored as structured metadata (tags, aliases, dates) on each chunk record
-- [ ] **INDX-04**: Each chunk's content is SHA-256 hashed; on re-index, only chunks whose hash has changed are re-embedded (unchanged chunks are skipped)
-- [ ] **INDX-05**: Embeddings are stored in embedded LanceDB alongside chunk text, heading breadcrumb, file path (vault-relative), line range (start/end line numbers), frontmatter metadata, content hash, and embedding model ID
-- [ ] **INDX-06**: When the configured embedding model ID differs from the model ID stored in the database, the indexer warns the operator and requires `--force-reindex` to proceed
+- [x] **INDX-04**: Each chunk's content is SHA-256 hashed; on re-index, only chunks whose hash has changed are re-embedded (unchanged chunks are skipped)
+- [x] **INDX-05**: Embeddings are stored in embedded LanceDB alongside chunk text, heading breadcrumb, file path (vault-relative), line range (start/end line numbers), frontmatter metadata, content hash, and embedding model ID
+- [x] **INDX-06**: When the configured embedding model ID differs from the model ID stored in the database, the indexer warns the operator and requires `--force-reindex` to proceed
 - [x] **INDX-07**: Embedding API calls use exponential backoff with jitter on rate-limit or transient errors; failed chunks are queued for retry without losing already-indexed data
 - [x] **INDX-08**: Indexer reports progress during one-shot mode (files processed, chunks embedded, errors)
 
 ### File Watching (Daemon Mode)
 
-- [ ] **WTCH-01**: Daemon mode uses the `notify` crate (with debounce via `notify-debouncer-full`) to watch the target directory recursively for create, modify, rename, and delete events
-- [ ] **WTCH-02**: File rename events are handled as delete-old-path + index-new-path (path change invalidates all chunks for the old path)
-- [ ] **WTCH-03**: File delete events remove all chunks for that file from the index
-- [ ] **WTCH-04**: The file watcher, embedding pipeline, and HTTP server run concurrently in a single tokio runtime; graceful shutdown is coordinated via a broadcast channel on SIGINT/SIGTERM
+- [x] **WTCH-01**: Daemon mode uses the `notify` crate (with debounce via `notify-debouncer-full`) to watch the target directory recursively for create, modify, rename, and delete events
+- [x] **WTCH-02**: File rename events are handled as delete-old-path + index-new-path (path change invalidates all chunks for the old path)
+- [x] **WTCH-03**: File delete events remove all chunks for that file from the index
+- [x] **WTCH-04**: The file watcher, embedding pipeline, and HTTP server run concurrently in a single tokio runtime; graceful shutdown is coordinated via a broadcast channel on SIGINT/SIGTERM
 
 ### Search
 
-- [ ] **SRCH-01**: Search supports semantic (vector ANN) queries via LanceDB's native vector search
-- [ ] **SRCH-02**: Search supports full-text queries over chunk text
-- [ ] **SRCH-03**: Search supports hybrid mode that fuses semantic and full-text scores via Reciprocal Rank Fusion (RRF); hybrid is the default search mode
+- [x] **SRCH-01**: Search supports semantic (vector ANN) queries via LanceDB's native vector search
+- [x] **SRCH-02**: Search supports full-text queries over chunk text
+- [x] **SRCH-03**: Search supports hybrid mode that fuses semantic and full-text scores via Reciprocal Rank Fusion (RRF); hybrid is the default search mode
 - [x] **SRCH-04**: Search results are returned as structured JSON with fields: `chunk_text`, `file_path` (vault-relative), `heading_breadcrumb`, `similarity_score`, `line_range` (start/end), `frontmatter` (tags/aliases/date)
 - [x] **SRCH-05**: Search supports `--limit N` (default: 10) and `--min-score F` (default: none) flags
 - [x] **SRCH-06**: Search supports `--mode [semantic|fts|hybrid]` flag to select search mode explicitly
@@ -55,26 +55,41 @@
 
 ### Observability
 
-- [ ] **OBS-01**: The HTTP server exposes a Prometheus-compatible `/metrics` endpoint
-- [ ] **OBS-02**: HDR histogram (or equivalent high-resolution histogram) metrics are tracked for: embedding API call latency, indexing throughput (chunks/sec), search query latency, HTTP request latency
-- [ ] **OBS-03**: Counter metrics are tracked for: total chunks indexed, embedding API errors, file events processed, search queries served
-- [ ] **OBS-04**: Gauge metrics are tracked for: current queue depth (pending embeds), total chunks in index, total files in index, stale file count
+- [x] **OBS-01**: The HTTP server exposes a Prometheus-compatible `/metrics` endpoint
+- [x] **OBS-02**: HDR histogram (or equivalent high-resolution histogram) metrics are tracked for: embedding API call latency, indexing throughput (chunks/sec), search query latency, HTTP request latency
+- [x] **OBS-03**: Counter metrics are tracked for: total chunks indexed, embedding API errors, file events processed, search queries served
+- [x] **OBS-04**: Gauge metrics are tracked for: current queue depth (pending embeds), total chunks in index, total files in index, stale file count
 
 ### Web Dashboard
 
-- [ ] **WEB-01**: The HTTP server serves a web dashboard on a configurable port (default: 3000); binds to `127.0.0.1` by default; `--bind` flag allows overriding
-- [ ] **WEB-02**: Dashboard includes a search UI: text input, search mode selector, results list with chunk text, file path, heading breadcrumb, and similarity score
-- [ ] **WEB-03**: Dashboard includes an index browser: list of all indexed files with per-file chunk count and last-indexed timestamp
-- [ ] **WEB-04**: Dashboard includes an index status view: total chunks, total files, last full-index time, pending queue depth, stale file count
-- [ ] **WEB-05**: Dashboard includes an embedding stats view: total embeddings, embedding model ID, estimated token usage (if available from API response)
-- [ ] **WEB-06**: Dashboard includes a read-only settings view: current config values, credential source (env var), active CLI flags
+- [x] **WEB-01**: The HTTP server serves a web dashboard on a configurable port (default: 3000); binds to `127.0.0.1` by default; `--bind` flag allows overriding
+- [x] **WEB-02**: Dashboard includes a search UI: text input, search mode selector, results list with chunk text, file path, heading breadcrumb, and similarity score
+- [x] **WEB-03**: Dashboard includes an index browser: list of all indexed files with per-file chunk count and last-indexed timestamp
+- [x] **WEB-04**: Dashboard includes an index status view: total chunks, total files, last full-index time, pending queue depth, stale file count
+- [x] **WEB-05**: Dashboard includes an embedding stats view: total embeddings, embedding model ID, estimated token usage (if available from API response)
+- [x] **WEB-06**: Dashboard includes a read-only settings view: current config values, credential source (env var), active CLI flags
 
 ### Claude Code Integration
 
-- [ ] **INTG-01**: A Claude Code skill file (`.claude/skills/search.md`) is shipped that enables Claude Code to invoke `local-index search` and parse the JSON results
-- [ ] **INTG-02**: A Claude Code skill file (`.claude/skills/reindex.md`) is shipped that enables Claude Code to trigger a one-shot re-index
-- [ ] **INTG-03**: A Claude Code skill file (`.claude/skills/status.md`) is shipped that enables Claude Code to check index status
-- [ ] **INTG-04**: Documented shell wrapper scripts for `search`, `reindex`, and `status` are included in the repository
+- [x] **INTG-01**: A Claude Code skill file (`.claude/skills/search.md`) is shipped that enables Claude Code to invoke `local-index search` and parse the JSON results
+- [x] **INTG-02**: A Claude Code skill file (`.claude/skills/reindex.md`) is shipped that enables Claude Code to trigger a one-shot re-index
+- [x] **INTG-03**: A Claude Code skill file (`.claude/skills/status.md`) is shipped that enables Claude Code to check index status
+- [x] **INTG-04**: Documented shell wrapper scripts for `search`, `reindex`, and `status` are included in the repository
+
+---
+
+## v1.1 Requirements
+
+### Web UI
+
+- [ ] **WEB-07**: Search UI includes a "Rerank results" checkbox; when checked the search request includes `rerank=true`; results display a "(reranked)" indicator; checkbox is disabled when `ANTHROPIC_API_KEY` is not set
+- [ ] **WEB-08**: Search result snippets highlight all query terms (case-insensitive, word boundary match) using `<mark>` elements in the displayed chunk_text
+
+### Logging
+
+- [ ] **LOG-01**: Every search query is logged at INFO level with structured fields: `query`, `mode`, `results_returned`, `latency_ms`
+- [ ] **LOG-02**: Daemon file-watcher events are logged at INFO level with fields: `event` (Created/Modified/Renamed/Deleted), `path`, and `renamed_to` (rename events only); indexing outcome (chunks added/removed/skipped) logged after each event is processed
+- [ ] **LOG-03**: LanceDB internal tracing output is suppressed below WARN via `EnvFilter` directive (`lancedb=warn,lance=warn`), removing verbose source-path messages without losing actionable warnings
 
 ---
 
@@ -119,13 +134,15 @@
 
 ## Traceability
 
+### v1 (all complete — 2026-04-13)
+
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | CLI-01 | Phase 2 | Complete |
-| CLI-02 | Phase 4 | Pending |
+| CLI-02 | Phase 4 | Complete |
 | CLI-03 | Phase 3 | Complete |
-| CLI-04 | Phase 4 | Pending |
-| CLI-05 | Phase 5 | Pending |
+| CLI-04 | Phase 4 | Complete |
+| CLI-05 | Phase 5 | Complete |
 | CLI-06 | Phase 1 | Complete |
 | CLI-07 | Phase 1 | Complete |
 | CLI-08 | Phase 1 | Complete |
@@ -135,18 +152,18 @@
 | INDX-01 | Phase 1 | Complete |
 | INDX-02 | Phase 1 | Complete |
 | INDX-03 | Phase 1 | Complete |
-| INDX-04 | Phase 2 | Pending |
-| INDX-05 | Phase 2 | Pending |
-| INDX-06 | Phase 2 | Pending |
+| INDX-04 | Phase 2 | Complete |
+| INDX-05 | Phase 2 | Complete |
+| INDX-06 | Phase 2 | Complete |
 | INDX-07 | Phase 2 | Complete |
 | INDX-08 | Phase 2 | Complete |
-| WTCH-01 | Phase 4 | Pending |
-| WTCH-02 | Phase 4 | Pending |
-| WTCH-03 | Phase 4 | Pending |
-| WTCH-04 | Phase 4 | Pending |
-| SRCH-01 | Phase 3 | Pending |
-| SRCH-02 | Phase 3 | Pending |
-| SRCH-03 | Phase 3 | Pending |
+| WTCH-01 | Phase 4 | Complete |
+| WTCH-02 | Phase 4 | Complete |
+| WTCH-03 | Phase 4 | Complete |
+| WTCH-04 | Phase 4 | Complete |
+| SRCH-01 | Phase 3 | Complete |
+| SRCH-02 | Phase 3 | Complete |
+| SRCH-03 | Phase 3 | Complete |
 | SRCH-04 | Phase 3 | Complete |
 | SRCH-05 | Phase 3 | Complete |
 | SRCH-06 | Phase 3 | Complete |
@@ -154,26 +171,35 @@
 | SRCH-08 | Phase 3 | Complete |
 | SRCH-09 | Phase 3 | Complete |
 | SRCH-10 | Phase 3 | Complete |
-| OBS-01 | Phase 4 | Pending |
-| OBS-02 | Phase 4 | Pending |
-| OBS-03 | Phase 4 | Pending |
-| OBS-04 | Phase 4 | Pending |
-| WEB-01 | Phase 5 | Pending |
-| WEB-02 | Phase 5 | Pending |
-| WEB-03 | Phase 5 | Pending |
-| WEB-04 | Phase 5 | Pending |
-| WEB-05 | Phase 5 | Pending |
-| WEB-06 | Phase 5 | Pending |
-| INTG-01 | Phase 6 | Pending |
-| INTG-02 | Phase 6 | Pending |
-| INTG-03 | Phase 6 | Pending |
-| INTG-04 | Phase 6 | Pending |
+| OBS-01 | Phase 4 | Complete |
+| OBS-02 | Phase 4 | Complete |
+| OBS-03 | Phase 4 | Complete |
+| OBS-04 | Phase 4 | Complete |
+| WEB-01 | Phase 5 | Complete |
+| WEB-02 | Phase 5 | Complete |
+| WEB-03 | Phase 5 | Complete |
+| WEB-04 | Phase 5 | Complete |
+| WEB-05 | Phase 5 | Complete |
+| WEB-06 | Phase 5 | Complete |
+| INTG-01 | Phase 6 | Complete |
+| INTG-02 | Phase 6 | Complete |
+| INTG-03 | Phase 6 | Complete |
+| INTG-04 | Phase 6 | Complete |
+
+### v1.1 (pending)
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| WEB-07 | TBD | Pending |
+| WEB-08 | TBD | Pending |
+| LOG-01 | TBD | Pending |
+| LOG-02 | TBD | Pending |
+| LOG-03 | TBD | Pending |
 
 **Coverage:**
-- v1 requirements: 45 total
-- Mapped to phases: 45
-- Unmapped: 0
+- v1 requirements: 45/45 complete
+- v1.1 requirements: 5 defined, phases TBD (roadmapper assigns)
 
 ---
 *Requirements defined: 2026-04-08*
-*Last updated: 2026-04-09 — CRED-01/CRED-02 updated to reflect Voyage AI (per D-04); WEB-06 updated to remove ~/.claude/ reference*
+*Last updated: 2026-04-14 — v1 all complete; v1.1 requirements added (WEB-07, WEB-08, LOG-01–03)*
