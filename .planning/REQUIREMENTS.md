@@ -134,7 +134,7 @@
 
 ## Traceability
 
-### v1 (all complete — 2026-04-13)
+### v1 (all complete -- 2026-04-13)
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
@@ -186,20 +186,20 @@
 | INTG-03 | Phase 6 | Complete |
 | INTG-04 | Phase 6 | Complete |
 
-### v1.1 (pending)
+### v1.1 (in progress)
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| WEB-07 | TBD | Pending |
-| WEB-08 | TBD | Pending |
-| LOG-01 | TBD | Pending |
-| LOG-02 | TBD | Pending |
-| LOG-03 | TBD | Pending |
+| LOG-01 | Phase 7 | Pending |
+| LOG-02 | Phase 7 | Pending |
+| LOG-03 | Phase 7 | Pending |
+| WEB-07 | Phase 8 | Pending |
+| WEB-08 | Phase 8 | Pending |
 
 **Coverage:**
 - v1 requirements: 45/45 complete
-- v1.1 requirements: 5 defined, phases TBD (roadmapper assigns)
+- v1.1 requirements: 5/5 mapped (Phase 7: 3, Phase 8: 2)
 
 ---
 *Requirements defined: 2026-04-08*
-*Last updated: 2026-04-14 — v1 all complete; v1.1 requirements added (WEB-07, WEB-08, LOG-01–03)*
+*Last updated: 2026-04-14 -- v1.1 requirements mapped to phases (LOG-01-03 -> Phase 7, WEB-07-08 -> Phase 8)*

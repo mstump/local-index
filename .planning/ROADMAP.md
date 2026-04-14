@@ -1,141 +1,144 @@
 # Roadmap: local-index
 
-## Overview
+## Milestones
 
-local-index delivers a single Rust binary that watches a markdown vault, chunks using smart size-based splitting with semantic break-point detection (inspired by qmd), embeds via configurable providers, stores in embedded LanceDB, and exposes hybrid search through CLI, web dashboard, and Claude Code skills. The build progresses from zero-dependency foundation (CLI + chunker) through storage and embedding integration, search capabilities, daemon mode with observability, web dashboard, and finally Claude Code integration -- each phase independently verifiable.
+- ✅ **v1.0 Core Indexer** - Phases 1-6 (shipped 2026-04-13)
+- 🚧 **v1.1 Search UX & Observability** - Phases 7-8 (in progress)
 
 ## Phases
 
-**Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+<details>
+<summary>v1.0 Core Indexer (Phases 1-6) - SHIPPED 2026-04-13</summary>
 
-Decimal phases appear between their surrounding integers in numeric order.
+- [x] **Phase 1: Foundation & File Processing** - CLI skeleton, markdown chunking, config resolution, structured logging
+- [x] **Phase 2: Storage & Embedding Pipeline** - LanceDB integration, Embedder trait, credential resolution, one-shot indexing
+- [x] **Phase 3: Search** - Semantic, full-text, and hybrid search with all query flags and output formats
+- [x] **Phase 4: Daemon Mode & Observability** - File watcher, concurrent runtime, Prometheus metrics, graceful shutdown
+- [x] **Phase 5: Web Dashboard** - axum-served dashboard with search UI, index browser, status views
+- [x] **Phase 6: Claude Code Integration** - Skill files, shell wrappers, serve command
 
-- [ ] **Phase 1: Foundation & File Processing** - CLI skeleton, markdown chunking, config resolution, structured logging
-- [ ] **Phase 2: Storage & Embedding Pipeline** - LanceDB integration, Embedder trait, credential resolution, one-shot indexing
-- [x] **Phase 3: Search** - Semantic, full-text, and hybrid search with all query flags and output formats (completed 2026-04-10)
-- [ ] **Phase 4: Daemon Mode & Observability** - File watcher, concurrent runtime, Prometheus metrics, graceful shutdown
-- [ ] **Phase 5: Web Dashboard** - axum-served dashboard with search UI, index browser, status views
-- [ ] **Phase 6: Claude Code Integration** - Skill files, shell wrappers, serve command
+</details>
+
+### v1.1 Search UX & Observability
+
+- [ ] **Phase 7: Operational Logging** - Structured search/daemon logging, LanceDB noise suppression
+- [ ] **Phase 8: Search UX Enhancements** - Reranking toggle and query term highlighting in web UI
 
 ## Phase Details
+
+<details>
+<summary>v1.0 Phase Details (Phases 1-6)</summary>
 
 ### Phase 1: Foundation & File Processing
 **Goal**: Operator can parse and chunk a markdown vault from the command line with full structured logging
 **Depends on**: Nothing (first phase)
 **Requirements**: CLI-06, CLI-07, CLI-08, INDX-01, INDX-02, INDX-03
-**Success Criteria** (what must be TRUE):
-  1. Operator can run the binary and see valid `--help` output with all subcommands listed
-  2. Operator can point the tool at a directory and it recursively discovers all `.md` files, skipping non-markdown with a trace log
-  3. Each markdown file is chunked using a smart size-based algorithm (≤3600 chars/chunk, 15% overlap, break points scored by semantic quality: h1=100, h2=90, h3/codeblock=80…blank=20, no splits inside code fences); heading hierarchy is preserved as a breadcrumb metadata field on each chunk (e.g., `## Goals > ### Q1`) — **Note: chunker rewritten in Phase 2 Plan 01 to use this algorithm**
-  4. YAML frontmatter is stripped from chunk content but available as structured metadata (tags, aliases, dates)
-  5. Log output is structured via `tracing` and controllable via `RUST_LOG` or `--log-level`
+**Status**: Complete (2026-04-10)
 **Plans**: 3 plans
 
 Plans:
-- [x] 01-01: TBD
-- [x] 01-02: TBD
-- [x] 01-03: TBD
+- [x] 01-01: CLI skeleton with clap derive, subcommands, global flags
+- [x] 01-02: Markdown walker, YAML frontmatter parser, heading breadcrumbs
+- [x] 01-03: Smart size-based chunker with semantic break-point scoring
 
 ### Phase 2: Storage & Embedding Pipeline
 **Goal**: Operator can index a vault end-to-end with embeddings stored in LanceDB, with incremental re-indexing on unchanged content
 **Depends on**: Phase 1
 **Requirements**: CLI-01, CRED-01, CRED-02, CRED-03, INDX-04, INDX-05, INDX-06, INDX-07, INDX-08
-**Success Criteria** (what must be TRUE):
-  1. Operator can run `local-index index <path>` and the tool embeds all chunks and stores them in LanceDB, then exits
-  2. Credential resolution finds API key from env var first, then `~/.claude/` fallback; startup fails with clear error if no credentials found
-  3. Re-running index on an unchanged vault skips all chunks (SHA-256 content hash match); only changed chunks are re-embedded
-  4. When the configured embedding model differs from what is stored in the database, the tool warns and requires `--force-reindex`
-  5. Transient API errors trigger exponential backoff with jitter; partial failures do not lose already-indexed data
+**Status**: Complete (2026-04-10)
 **Plans**: 3 plans
 
 Plans:
-- [x] 02-01-PLAN.md — Dependencies, credentials, Embedder trait, VoyageEmbedder with retry
-- [x] 02-02-PLAN.md — LanceDB ChunkStore with schema, upsert, hash query, model guard
-- [x] 02-03-PLAN.md — Wire index command to embed+store pipeline with progress reporting
+- [x] 02-01: Dependencies, credentials, Embedder trait, VoyageEmbedder with retry
+- [x] 02-02: LanceDB ChunkStore with schema, upsert, hash query, model guard
+- [x] 02-03: Wire index command to embed+store pipeline with progress reporting
 
 ### Phase 3: Search
 **Goal**: Operator can search their indexed vault with semantic, full-text, or hybrid queries and receive structured results
 **Depends on**: Phase 2
 **Requirements**: CLI-03, SRCH-01, SRCH-02, SRCH-03, SRCH-04, SRCH-05, SRCH-06, SRCH-07, SRCH-08, SRCH-09, SRCH-10
-**Reference**: qmd (tobi/qmd) — strong prior art for the hybrid search approach
-**Success Criteria** (what must be TRUE):
-  1. Operator can run `local-index search "<query>"` and receive JSON results with chunk_text, file_path, heading_breadcrumb, similarity_score, line_range, and frontmatter
-  2. Hybrid mode (default) fuses BM25 full-text and vector semantic results via Reciprocal Rank Fusion (RRF); operator can switch to pure semantic or pure FTS via `--mode`
-  3. Operator can filter results by path prefix (`--path-filter`) and frontmatter tag (`--tag-filter`)
-  4. Operator can control result count (`--limit`), minimum score (`--min-score`), context window (`--context`), and output format (`--format json|pretty`)
-**Search design notes** (from qmd analysis):
-  - Three query types: `lex` (keyword → BM25/FTS only), `vec` (semantic → vector only), `hyde` (hypothetical document expansion → vector only)
-  - `query` command (default) uses typed expansion: generate lex+vec+hyde variants, run all, fuse with RRF, return ranked results
-  - `search` command: BM25-only (fast, keyword)
-  - `vsearch` command: vector-only (semantic)
-  - LanceDB FTS (confirmed available in Rust crate) handles BM25; LanceDB vector search handles semantic
-  - Skip LLM reranking in v1 (qmd uses local GGUF models — not our deployment model)
+**Status**: Complete (2026-04-10)
 **Plans**: 2 plans
 
 Plans:
-- [x] 03-01-PLAN.md — Search module: types, SearchEngine with semantic/FTS/hybrid modes, score normalization
-- [x] 03-02-PLAN.md — Output formatters, CLI wiring, FTS index in index command, integration tests
+- [x] 03-01: Search module: types, SearchEngine with semantic/FTS/hybrid modes, score normalization
+- [x] 03-02: Output formatters, CLI wiring, FTS index in index command, integration tests
 
 ### Phase 4: Daemon Mode & Observability
 **Goal**: Operator can run a persistent daemon that watches for file changes and re-indexes in real time, with full Prometheus metrics
 **Depends on**: Phase 2
 **Requirements**: CLI-02, CLI-04, WTCH-01, WTCH-02, WTCH-03, WTCH-04, OBS-01, OBS-02, OBS-03, OBS-04
-**Success Criteria** (what must be TRUE):
-  1. Operator can run `local-index daemon <path>` and the process watches for file create/modify/rename/delete events, re-indexing affected chunks automatically
-  2. File renames are handled as delete-old + index-new; file deletes remove all chunks for that file
-  3. Operator can run `local-index status` and see total chunks, files, last index time, pending queue depth, and stale file count
-  4. A `/metrics` endpoint serves Prometheus-compatible metrics including HDR histograms for embedding latency, indexing throughput, search latency, and HTTP latency
-  5. Graceful shutdown on SIGINT/SIGTERM completes in-flight work without data loss
+**Status**: Complete (2026-04-10)
 **Plans**: 3 plans
 
 Plans:
-- [x] 04-01-PLAN.md — Dependencies, metrics foundation, Prometheus setup, HTTP router
-- [x] 04-02-PLAN.md — Status command with ChunkStore aggregate queries
-- [x] 04-03-PLAN.md — File watcher, event processor, graceful shutdown, daemon CLI wiring
+- [x] 04-01: Dependencies, metrics foundation, Prometheus setup, HTTP router
+- [x] 04-02: Status command with ChunkStore aggregate queries
+- [x] 04-03: File watcher, event processor, graceful shutdown, daemon CLI wiring
 
 ### Phase 5: Web Dashboard
 **Goal**: Operator can browse and search their index through a web interface served by the same process
 **Depends on**: Phase 3, Phase 4
 **Requirements**: CLI-05, WEB-01, WEB-02, WEB-03, WEB-04, WEB-05, WEB-06
-**Success Criteria** (what must be TRUE):
-  1. Operator can run `local-index serve` or `local-index daemon` and open a web dashboard at `http://127.0.0.1:3000` (port configurable via `--bind`)
-  2. Dashboard search UI accepts a query, lets the operator select search mode, and displays ranked results with chunk text, file path, breadcrumb, and score
-  3. Dashboard index browser lists all indexed files with per-file chunk count and last-indexed timestamp
-  4. Dashboard shows index status (total chunks/files, last index time, queue depth) and embedding stats (count, model, token usage)
-  5. Dashboard shows a read-only settings view with current config values and credential source
+**Status**: Complete (2026-04-12)
 **Plans**: 3 plans
 **UI hint**: yes
 
 Plans:
-- [x] 05-01-PLAN.md — Foundation: askama deps, web module, AppState, dashboard router, serve command, base template
-- [x] 05-02-PLAN.md — Search page: search handler with SearchEngine, search template with form/results/empty states
-- [x] 05-03-PLAN.md — Index browser, status page with embedding stats, settings page
+- [x] 05-01: Foundation: askama deps, web module, AppState, dashboard router, serve command, base template
+- [x] 05-02: Search page: search handler with SearchEngine, search template with form/results/empty states
+- [x] 05-03: Index browser, status page with embedding stats, settings page
 
 ### Phase 6: Claude Code Integration
 **Goal**: Claude Code can invoke search, re-index, and status checks via skill files without human intervention
 **Depends on**: Phase 3
 **Requirements**: INTG-01, INTG-02, INTG-03, INTG-04
-**Success Criteria** (what must be TRUE):
-  1. A `.claude/skills/search.md` skill file exists that enables Claude Code to invoke `local-index search` and parse JSON results
-  2. Skill files for `reindex` and `status` exist and work correctly when invoked by Claude Code
-  3. Shell wrapper scripts for search, reindex, and status are included in the repository and documented
+**Status**: Complete (2026-04-13)
 **Plans**: 1 plan
 
 Plans:
-- [x] 06-01-PLAN.md — Skill files (search, reindex, status), shell wrappers, README Claude Code Integration section
+- [x] 06-01: Skill files (search, reindex, status), shell wrappers, README Claude Code Integration section
+
+</details>
+
+### Phase 7: Operational Logging
+**Goal**: Operators can see what the daemon is doing from logs alone -- every search query and file event is visible at INFO level, and LanceDB noise is gone
+**Depends on**: Phase 6 (v1.0 complete)
+**Requirements**: LOG-01, LOG-02, LOG-03
+**Success Criteria** (what must be TRUE):
+  1. Running a search query (CLI or web) produces an INFO log line containing the query text, search mode, number of results returned, and latency in milliseconds
+  2. When the daemon processes a file event (create, modify, rename, delete), an INFO log line appears with the event type, file path, and (for renames) the destination path; a follow-up log line shows the indexing outcome (chunks added, removed, or skipped)
+  3. Running the daemon with default RUST_LOG settings produces no LanceDB/Lance internal trace messages (verbose source file paths, internal spans); setting RUST_LOG=lancedb=debug restores them on demand
+**Plans**: TBD
+
+Plans:
+- [ ] 07-01: TBD
+
+### Phase 8: Search UX Enhancements
+**Goal**: The web search UI surfaces reranking controls and highlights matching terms so operators find relevant results faster
+**Depends on**: Phase 7
+**Requirements**: WEB-07, WEB-08
+**Success Criteria** (what must be TRUE):
+  1. The search page shows a "Rerank results" checkbox; checking it and searching sends rerank=true to the backend; results display a "(reranked)" badge; when ANTHROPIC_API_KEY is not set, the checkbox is visually disabled with a tooltip explaining why
+  2. After searching, every occurrence of each query term in result snippets is wrapped in a visible highlight (case-insensitive, word-boundary aware); multi-word queries highlight each term independently
+  3. Highlighting does not break HTML entities or inject raw HTML from user input (query terms are escaped before insertion into markup)
+**Plans**: TBD
+**UI hint**: yes
+
+Plans:
+- [ ] 08-01: TBD
 
 ## Progress
 
-**Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
+**Execution Order:** Phases 7 then 8.
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Foundation & File Processing | 3/3 | Complete | 2026-04-09 |
-| 2. Storage & Embedding Pipeline | 3/3 | Complete | 2026-04-10 |
-| 3. Search | 2/2 | Complete   | 2026-04-10 |
-| 4. Daemon Mode & Observability | 3/3 | Complete | 2026-04-10 |
-| 5. Web Dashboard | 3/3 | Complete | 2026-04-12 |
-| 6. Claude Code Integration | 1/1 | Complete | 2026-04-13 |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Foundation & File Processing | v1.0 | 3/3 | Complete | 2026-04-09 |
+| 2. Storage & Embedding Pipeline | v1.0 | 3/3 | Complete | 2026-04-10 |
+| 3. Search | v1.0 | 2/2 | Complete | 2026-04-10 |
+| 4. Daemon Mode & Observability | v1.0 | 3/3 | Complete | 2026-04-10 |
+| 5. Web Dashboard | v1.0 | 3/3 | Complete | 2026-04-12 |
+| 6. Claude Code Integration | v1.0 | 1/1 | Complete | 2026-04-13 |
+| 7. Operational Logging | v1.1 | 0/? | Not started | - |
+| 8. Search UX Enhancements | v1.1 | 0/? | Not started | - |
