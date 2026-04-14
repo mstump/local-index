@@ -97,7 +97,7 @@
 
 ### Preprocessor — core
 
-- [ ] **PRE-01**: Operator can run the PDF/image preprocessor as a **Rust binary in this workspace** (separate crate or `local-index` subcommand); no Node/Python helpers
+- [ ] **PRE-01**: Operator can run the PDF/image preprocessor as a **Rust binary in this workspace** (the `local-index` crate); processing is invoked from **`index` and `daemon`** — no separate preprocess subcommand, no Node/Python helpers (see `.planning/phases/09-preprocessor-foundation/09-CONTEXT.md` D-03)
 - [ ] **PRE-02**: Preprocessor watches a vault root recursively using `notify` + debounce (~500 ms) for `*.pdf`, `*.png`, `*.jpg`, `*.jpeg`, `*.webp`
 - [ ] **PRE-03**: Preprocessor respects `.gitignore` and supports a configurable exclude list
 - [ ] **PRE-04**: When a companion file already exists and its YAML frontmatter **source content hash** matches the current source file SHA-256, processing is skipped (idempotent)

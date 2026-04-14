@@ -30,7 +30,7 @@
 
 ### v1.2 PDF & Image Preprocessor (SEED-001)
 
-- [ ] **Phase 9: Preprocessor foundation** - CLI/binary, vault watcher, PDF classification, local text extraction, initial companion `.md` output and naming convention (PRE-01–PRE-06, PRE-13, PRE-14 subset)
+- [ ] **Phase 9: Preprocessor foundation** - Integrated `index`/`daemon` asset pipeline: PDF classification, local text + Claude vision for scans, standalone image descriptions, ephemeral cache under data dir, chunks attributed to source asset paths (PRE-01–PRE-06, PRE-13, PRE-14 subset; see `09-CONTEXT.md`)
 - [ ] **Phase 10: OCR providers** - Rasterize scanned pages; Anthropic Messages OCR path; optional Google Document AI when configured (PRE-07, PRE-08)
 - [ ] **Phase 11: Vision enrichment & idempotency** - Anthropic vision for images; full PDF reassembly and standalone images; blockquote format; hash-based skip (PRE-04, PRE-09–PRE-12, PRE-13 completion)
 
@@ -140,14 +140,14 @@ Plans:
 - [x] 08-01: `08-01-PLAN.md` — rerank checkbox + hidden `no_rerank`, Safe highlighted snippets, `mark` CSS
 
 ### Phase 9: Preprocessor foundation
-**Goal**: Operator can run the Rust preprocessor on a vault; it watches PDFs/images, classifies PDFs, extracts text locally for text-first PDFs, and writes companion markdown with agreed naming and frontmatter — enough for `local-index` to index the output.
+**Goal**: Operator runs `local-index index` and `local-index daemon` on a vault; PDFs/images are classified and processed (local text for text-first PDFs; rasterization + Claude for scans/mixed PDFs and images); derived text is cached only under the data directory; indexed chunks use the **source** PDF/image path for provenance — no Obsidian-visible companion markdown beside assets.
 **Depends on**: Phase 8 (v1.1 complete)
 **Requirements**: PRE-01, PRE-02, PRE-03, PRE-05, PRE-06, PRE-13 (initial), PRE-14
 **Success Criteria** (what must be TRUE):
-  1. A single command or binary processes a vault path and/or runs as a daemon with debounced file events for configured extensions
-  2. Text-first PDFs yield companion `.md` files whose text is searchable after a normal `local-index index`
-  3. README documents companion naming relative to source files and how to avoid duplicate indexing
-**Plans**: TBD
+  1. `local-index index <vault>` and `local-index daemon <vault>` process configured asset extensions with debounced watcher events and optional `--skip-asset-processing` / `LOCAL_INDEX_SKIP_ASSET_PROCESSING`
+  2. Text-first PDFs and vision-processed PDFs/images produce searchable chunks after a normal index run; chunk `file_path` points at the original asset
+  3. README documents ephemeral `asset-cache/` layout, environment variables, and that the index does not double-count raw PDFs as separate markdown paths
+**Plans**: `09-01-PLAN.md`, `09-02-PLAN.md`, `09-03-PLAN.md`
 
 ### Phase 10: OCR providers
 **Goal**: Scanned and mixed PDFs are rasterized and processed through an OCR path; Anthropic is default; Google Document AI is optional behind config and credentials.
@@ -182,6 +182,6 @@ Plans:
 | 6. Claude Code Integration | v1.0 | 1/1 | Complete | 2026-04-13 |
 | 7. Operational Logging | v1.1 | 1/1 | Complete    | 2026-04-14 |
 | 8. Search UX Enhancements | v1.1 | 1/1 | Complete | 2026-04-14 |
-| 9. Preprocessor foundation | v1.2 | 0/? | Planned | — |
+| 9. Preprocessor foundation | v1.2 | 0/3 | Planned (3 plans) | — |
 | 10. OCR providers | v1.2 | 0/? | Planned | — |
 | 11. Vision enrichment & idempotency | v1.2 | 0/? | Planned | — |
