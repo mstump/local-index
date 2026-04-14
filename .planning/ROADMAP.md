@@ -4,6 +4,7 @@
 
 - ✅ **v1.0 Core Indexer** - Phases 1-6 (shipped 2026-04-13)
 - ✅ **v1.1 Search UX & Observability** - Phases 7-8 (completed 2026-04-14)
+- **v1.2 PDF & Image Preprocessor (SEED-001)** - Phases 9-11 (planned)
 
 ## Phases
 
@@ -19,10 +20,19 @@
 
 </details>
 
-### v1.1 Search UX & Observability
+<details>
+<summary>v1.1 Search UX & Observability (Phases 7-8) - COMPLETE 2026-04-14</summary>
 
 - [x] **Phase 7: Operational Logging** - Structured search/daemon logging, LanceDB noise suppression (completed 2026-04-14)
 - [x] **Phase 8: Search UX Enhancements** - Reranking toggle and query term highlighting in web UI (completed 2026-04-14)
+
+</details>
+
+### v1.2 PDF & Image Preprocessor (SEED-001)
+
+- [ ] **Phase 9: Preprocessor foundation** - CLI/binary, vault watcher, PDF classification, local text extraction, initial companion `.md` output and naming convention (PRE-01–PRE-06, PRE-13, PRE-14 subset)
+- [ ] **Phase 10: OCR providers** - Rasterize scanned pages; Anthropic Messages OCR path; optional Google Document AI when configured (PRE-07, PRE-08)
+- [ ] **Phase 11: Vision enrichment & idempotency** - Anthropic vision for images; full PDF reassembly and standalone images; blockquote format; hash-based skip (PRE-04, PRE-09–PRE-12, PRE-13 completion)
 
 ## Phase Details
 
@@ -129,9 +139,38 @@ Plans:
 Plans:
 - [x] 08-01: `08-01-PLAN.md` — rerank checkbox + hidden `no_rerank`, Safe highlighted snippets, `mark` CSS
 
+### Phase 9: Preprocessor foundation
+**Goal**: Operator can run the Rust preprocessor on a vault; it watches PDFs/images, classifies PDFs, extracts text locally for text-first PDFs, and writes companion markdown with agreed naming and frontmatter — enough for `local-index` to index the output.
+**Depends on**: Phase 8 (v1.1 complete)
+**Requirements**: PRE-01, PRE-02, PRE-03, PRE-05, PRE-06, PRE-13 (initial), PRE-14
+**Success Criteria** (what must be TRUE):
+  1. A single command or binary processes a vault path and/or runs as a daemon with debounced file events for configured extensions
+  2. Text-first PDFs yield companion `.md` files whose text is searchable after a normal `local-index index`
+  3. README documents companion naming relative to source files and how to avoid duplicate indexing
+**Plans**: TBD
+
+### Phase 10: OCR providers
+**Goal**: Scanned and mixed PDFs are rasterized and processed through an OCR path; Anthropic is default; Google Document AI is optional behind config and credentials.
+**Depends on**: Phase 9
+**Requirements**: PRE-07, PRE-08
+**Success Criteria** (what must be TRUE):
+  1. A scanned PDF produces markdown body content derived from OCR, not empty stubs
+  2. Switching OCR provider (Anthropic vs Google) is documented and fails clearly if credentials are missing
+**Plans**: TBD
+
+### Phase 11: Vision enrichment & idempotency
+**Goal**: Images embedded in PDFs and standalone image files get semantic descriptions via Anthropic vision; full page-order reassembly; hash-based skip when sources are unchanged.
+**Depends on**: Phase 10
+**Requirements**: PRE-04, PRE-09, PRE-10, PRE-11, PRE-12, PRE-13 (complete)
+**Success Criteria** (what must be TRUE):
+  1. Re-running the preprocessor on an unchanged source skips work (hash match in frontmatter)
+  2. PDF output interleaves text and image descriptions; standalone images produce small markdown companions
+  3. Image descriptions follow the SEED-001 blockquote convention
+**Plans**: TBD
+
 ## Progress
 
-**Execution Order:** Phases 7 then 8.
+**Execution Order:** Phase 9 → 10 → 11.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -143,3 +182,6 @@ Plans:
 | 6. Claude Code Integration | v1.0 | 1/1 | Complete | 2026-04-13 |
 | 7. Operational Logging | v1.1 | 1/1 | Complete    | 2026-04-14 |
 | 8. Search UX Enhancements | v1.1 | 1/1 | Complete | 2026-04-14 |
+| 9. Preprocessor foundation | v1.2 | 0/? | Planned | — |
+| 10. OCR providers | v1.2 | 0/? | Planned | — |
+| 11. Vision enrichment & idempotency | v1.2 | 0/? | Planned | — |

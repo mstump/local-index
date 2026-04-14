@@ -17,3 +17,17 @@
 **Archive:** `.planning/milestones/v1.0-phases/`
 
 ---
+
+## v1.1 — Search UX & Observability (Complete)
+
+**Completed:** 2026-04-14
+**Phases:** 7–8
+
+**What shipped:**
+
+- Phase 7: Operational logging — search queries and daemon file events at INFO; LanceDB noise suppression
+- Phase 8: Search UX — web reranking toggle, query-term highlighting in snippets
+
+**Archive:** `.planning/milestones/v1.1-phases/`
+
+---

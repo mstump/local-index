@@ -93,11 +93,51 @@
 
 ---
 
+## v1.2 Requirements (SEED-001 — companion preprocessor)
+
+### Preprocessor — core
+
+- [ ] **PRE-01**: Operator can run the PDF/image preprocessor as a **Rust binary in this workspace** (separate crate or `local-index` subcommand); no Node/Python helpers
+- [ ] **PRE-02**: Preprocessor watches a vault root recursively using `notify` + debounce (~500 ms) for `*.pdf`, `*.png`, `*.jpg`, `*.jpeg`, `*.webp`
+- [ ] **PRE-03**: Preprocessor respects `.gitignore` and supports a configurable exclude list
+- [ ] **PRE-04**: When a companion file already exists and its YAML frontmatter **source content hash** matches the current source file SHA-256, processing is skipped (idempotent)
+- [ ] **PRE-05**: PDFs are classified (e.g. text-heavy vs scanned/mixed) using a Rust strategy (`pdf-inspector` or agreed alternative); classification drives local extract vs OCR path
+- [ ] **PRE-06**: Text-first PDF pages: text extracted locally and converted to markdown suitable for embedding
+- [ ] **PRE-07**: Scanned / image-heavy PDF pages: rasterize to images and pass through the OCR path (default provider: Anthropic Messages API with image content)
+- [ ] **PRE-08**: OCR provider is configurable; **Anthropic** is the default; **Google Document AI** is optional when credentials and config are present
+- [ ] **PRE-09**: Every raster image from PDFs and every standalone image file is sent through **Anthropic vision** for semantic description (content summary, visible text, charts/diagrams as described in SEED-001)
+- [ ] **PRE-10**: For each PDF, output is **one** companion markdown file with body content in **page order**, interleaving extracted text and image descriptions
+- [ ] **PRE-11**: Image descriptions use the agreed blockquote pattern from SEED-001 (e.g. `> **[Image: …]** …`)
+- [ ] **PRE-12**: Standalone images produce a small markdown companion with the vision description as the primary body
+- [ ] **PRE-13**: Companion files are named and placed so **local-index** indexes them as normal `.md` without indexing raw PDFs/images twice; convention is documented in README (see SEED-001 naming notes)
+- [ ] **PRE-14**: Credential resolution for Anthropic (and optional Google) reuses or mirrors existing project patterns (`ANTHROPIC_API_KEY`, `~/.claude/` where applicable), with clear errors when required keys are missing
+
+### Traceability (v1.2)
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| PRE-01 | Phase 9 | Pending |
+| PRE-02 | Phase 9 | Pending |
+| PRE-03 | Phase 9 | Pending |
+| PRE-04 | Phase 11 | Pending |
+| PRE-05 | Phase 9 | Pending |
+| PRE-06 | Phase 9 | Pending |
+| PRE-07 | Phase 10 | Pending |
+| PRE-08 | Phase 10 | Pending |
+| PRE-09 | Phase 11 | Pending |
+| PRE-10 | Phase 11 | Pending |
+| PRE-11 | Phase 11 | Pending |
+| PRE-12 | Phase 11 | Pending |
+| PRE-13 | Phase 9 / 11 | Pending |
+| PRE-14 | Phase 9 | Pending |
+
+---
+
 ## v2 Requirements
 
 ### Document Formats
 
-- **FMT-01**: Indexer processes PDF files (requires poppler or similar extraction)
+- **FMT-01**: Indexer processes PDF files natively *or* companion pipeline is documented as the supported path — **v1.2 PRE-** requirements deliver PDF via `.processed.md` companions (see SEED-001); native PDF in the indexer remains out of scope unless promoted later
 - **FMT-02**: Indexer processes DOCX files
 - **FMT-03**: Non-text files (images, audio) are skipped with a warning but do not crash the indexer
 
@@ -186,20 +226,25 @@
 | INTG-03 | Phase 6 | Complete |
 | INTG-04 | Phase 6 | Complete |
 
-### v1.1 (in progress)
+### v1.1 (complete)
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | LOG-01 | Phase 7 | Complete |
 | LOG-02 | Phase 7 | Complete |
 | LOG-03 | Phase 7 | Complete |
-| WEB-07 | Phase 8 | Satisfied |
-| WEB-08 | Phase 8 | Satisfied |
+| WEB-07 | Phase 8 | Complete |
+| WEB-08 | Phase 8 | Complete |
+
+### v1.2 (SEED-001)
+
+See **Traceability (v1.2)** under [v1.2 Requirements](#v12-requirements-seed-001--companion-preprocessor).
 
 **Coverage:**
 - v1 requirements: 45/45 complete
-- v1.1 requirements: 5/5 mapped (Phase 7: 3, Phase 8: 2)
+- v1.1 requirements: 5/5 complete (Phase 7: 3, Phase 8: 2)
+- v1.2 requirements: 14 mapped to Phases 9–11 (see ROADMAP)
 
 ---
 *Requirements defined: 2026-04-08*
-*Last updated: 2026-04-14 -- v1.1 requirements mapped to phases (LOG-01-03 -> Phase 7, WEB-07-08 -> Phase 8)*
+*Last updated: 2026-04-14 — v1.2 (SEED-001) PRE-01–PRE-14 added; roadmap Phases 9–11*

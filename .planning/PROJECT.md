@@ -8,9 +8,22 @@ A Rust daemon that watches a directory tree (initially an Obsidian vault), chunk
 
 Fast, accurate semantic search over a local markdown vault that Claude can query as a skill without any manual intervention.
 
-## Current Milestone: v1.1 — Search UX & Observability (complete 2026-04-14)
+## Current Milestone: v1.2 — PDF & Image Preprocessor (SEED-001)
 
-**Goal:** Make search results more useful and operational logs actually readable.
+**Goal:** Make PDFs and images in an Obsidian vault searchable by producing enriched `.processed.md` companion files that the existing indexer ingests unchanged.
+
+**Target features:**
+- Companion daemon or subcommand (Rust, same repo) watching the vault for PDFs and raster images
+- PDF classification and extraction pipeline (local text path + OCR path per SEED-001)
+- Anthropic Messages API for vision/OCR; optional Google Document AI for OCR when configured
+- Deterministic companion file naming, YAML frontmatter with source content hash, skip when unchanged
+- Documented integration with `local-index index` / `daemon` so companions are indexed without double-counting originals
+
+**Selected seed:** [SEED-001](.planning/seeds/SEED-001-pdf-image-processor-daemon.md) (full architecture and phase split preserved there).
+
+---
+
+## Previous milestone: v1.1 — Search UX & Observability (complete 2026-04-14)
 
 **Shipped in v1.1:**
 - Web UI: reranking toggle (Claude reranking exposed in search UI) — Phase 8
@@ -88,13 +101,15 @@ Fast, accurate semantic search over a local markdown vault that Claude can query
 - [x] YAML frontmatter parsing with heading breadcrumb extraction
 - [x] `tracing` structured logging with RUST_LOG and --log-level support
 
-### Active (next milestone)
+### Active (v1.2)
 
-*None — define the next milestone in ROADMAP / MILESTONES when ready.*
+- [ ] Companion preprocessor (SEED-001): watch vault for PDFs/images, emit `.processed.md` companions with hashes; OCR/vision per roadmap phases
+- [ ] Documented companion naming and indexer behavior so PDFs/images do not create duplicate or orphan chunks
 
 ### Out of Scope
 
-- PDF support — deferred; requires different extraction pipeline (see SEED-001)
+- In-core PDF parsing inside `local-index` indexer (same as before) — v1.2 uses **companion markdown** only; the indexer still processes `.md`
+- DOCX ingestion — still deferred (`FMT-02`)
 - Remote/cloud LanceDB — embedded only; keeps deployment simple
 - Authentication on the WebUI — local tool, no auth needed
 - Settings UI in the WebUI — all config via CLI/.env; read-only view is sufficient
@@ -151,4 +166,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-14 — v1.1 complete: Phase 7 (operational logging) + Phase 8 (search UX) validated*
+*Last updated: 2026-04-14 — milestone v1.2 (SEED-001) started; v1.1 complete*
