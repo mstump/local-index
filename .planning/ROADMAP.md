@@ -21,7 +21,7 @@
 
 ### v1.1 Search UX & Observability
 
-- [ ] **Phase 7: Operational Logging** - Structured search/daemon logging, LanceDB noise suppression
+- [x] **Phase 7: Operational Logging** - Structured search/daemon logging, LanceDB noise suppression (completed 2026-04-14)
 - [ ] **Phase 8: Search UX Enhancements** - Reranking toggle and query term highlighting in web UI
 
 ## Phase Details
@@ -140,5 +140,5 @@ Plans:
 | 4. Daemon Mode & Observability | v1.0 | 3/3 | Complete | 2026-04-10 |
 | 5. Web Dashboard | v1.0 | 3/3 | Complete | 2026-04-12 |
 | 6. Claude Code Integration | v1.0 | 1/1 | Complete | 2026-04-13 |
-| 7. Operational Logging | v1.1 | 1/1 | Complete   | 2026-04-14 |
+| 7. Operational Logging | v1.1 | 1/1 | Complete    | 2026-04-14 |
 | 8. Search UX Enhancements | v1.1 | 0/? | Not started | - |

@@ -31,6 +31,12 @@ Fast, accurate semantic search over a local markdown vault that Claude can query
 - [x] Documented shell wrapper scripts for search, reindex, and status
 - [x] README section documenting Claude Code integration
 
+**Phase 7: Operational Logging** (validated 2026-04-14)
+
+- [x] Every search query logged at INFO with `query`, `mode`, `results_returned`, `latency_ms` (CLI: `search completed`; web: `web search completed`)
+- [x] Daemon file-watcher events logged at INFO with event type, path, `renamed_to` when applicable; indexing outcome with chunks added/removed/skipped
+- [x] LanceDB/Lance internal tracing suppressed below WARN in default `EnvFilter` (`lancedb=warn,lance=warn`); full override when `RUST_LOG` is set
+
 **Phase 5: Web Dashboard** (validated 2026-04-12)
 
 - [x] axum HTTP server on configurable port (default 3000), binds 127.0.0.1, `--bind` flag
@@ -83,12 +89,6 @@ Fast, accurate semantic search over a local markdown vault that Claude can query
 
 - [ ] Search UI exposes a "Rerank results" checkbox; when checked, backend is called with `rerank=true`; results show a "(reranked)" indicator; checkbox disabled when `ANTHROPIC_API_KEY` is absent
 - [ ] Search result snippets highlight all query terms (case-insensitive, word boundary) using `<mark>` elements in the displayed chunk_text
-
-**Logging**
-
-- [ ] Every search query logged at INFO with fields: `query`, `mode`, `results_returned`, `latency_ms`
-- [ ] Daemon file-watcher events logged at INFO with fields: event type, path, renamed_to (renames); indexing outcome (chunks added/removed/skipped) logged after each event
-- [ ] LanceDB internal tracing suppressed below WARN via EnvFilter (`lancedb=warn,lance=warn`), removing verbose source-path noise without losing actionable warnings
 
 ### Out of Scope
 
@@ -149,4 +149,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-14 — v1.0 complete (all 6 phases), v1.1 milestone started*
+*Last updated: 2026-04-14 — Phase 7 (operational logging) validated; Phase 8 (search UX) next*
