@@ -140,8 +140,28 @@
         /* Search form */
         .search-form {
             display: flex;
+            flex-wrap: wrap;
+            align-items: center;
             gap: 8px;
             margin-bottom: 16px;
+        }
+        .rerank-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        .rerank-label input {
+            margin: 0;
+        }
+        .rerank-settings-link {
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .rerank-settings-link:hover {
+            color: var(--accent);
         }
         .search-input {
             flex: 1;
@@ -219,6 +239,13 @@
             display: -webkit-box;
             -webkit-line-clamp: 3;
             -webkit-box-orient: vertical;
+        }
+        /* Search hit highlighting (WEB-08) — soft amber, scoped to snippets */
+        .result-body mark {
+            background: #fff3cd;
+            color: inherit;
+            padding: 0 2px;
+            border-radius: 2px;
         }
 
         /* Data tables (index browser) */

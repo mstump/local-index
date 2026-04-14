@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use askama::Template;
+use askama::filters::Safe;
 use askama_web::WebTemplate;
 use axum::extract::{Query, State};
 use serde::Deserialize;
@@ -8,6 +9,7 @@ use serde::Deserialize;
 use crate::search::{SearchEngine, SearchMode, SearchOptions};
 use crate::web::context::AppState;
 use crate::web::error::AppError;
+use crate::web::highlight_query_terms;
 
 // -- Search --
 
@@ -15,6 +17,9 @@ use crate::web::error::AppError;
 pub struct SearchParams {
     pub q: Option<String>,
     pub mode: Option<String>,
+    /// When `Some(false)`, do not rerank even if a reranker is configured.
+    #[serde(default)]
+    pub rerank: Option<bool>,
     /// When set (e.g. `1` or `true`), skip reranking even if a reranker is configured.
     #[serde(default)]
     pub no_rerank: Option<bool>,
@@ -23,7 +28,7 @@ pub struct SearchParams {
 pub struct SearchResultView {
     pub file_path: String,
     pub heading_breadcrumb: String,
-    pub chunk_text: String,
+    pub chunk_html: Safe<String>,
     pub similarity_score: f64,
 }
 
@@ -35,6 +40,9 @@ pub struct SearchTemplate {
     pub results: Vec<SearchResultView>,
     pub result_count: usize,
     pub active_nav: &'static str,
+    pub rerank_available: bool,
+    pub rerank_checked: bool,
+    pub rerank_applied: bool,
 }
 
 pub async fn search_handler(
@@ -43,6 +51,7 @@ pub async fn search_handler(
 ) -> Result<SearchTemplate, AppError> {
     let mode_str = params.mode.unwrap_or_else(|| "hybrid".to_string());
     let query = params.q.clone().unwrap_or_default();
+    let rerank_available = state.anthropic_reranker.is_some();
 
     // If no query, return empty form
     if query.is_empty() {
@@ -52,6 +61,9 @@ pub async fn search_handler(
             results: vec![],
             result_count: 0,
             active_nav: "search",
+            rerank_available,
+            rerank_checked: rerank_available,
+            rerank_applied: false,
         });
     }
 
@@ -64,8 +76,11 @@ pub async fn search_handler(
         _ => SearchMode::Hybrid,
     };
 
-    let skip_rerank = params.no_rerank.unwrap_or(false);
-    let rerank = state.anthropic_reranker.is_some() && !skip_rerank;
+    let rerank =
+        rerank_available && !params.no_rerank.unwrap_or(false) && params.rerank != Some(false);
+    let rerank_checked =
+        rerank_available && !params.no_rerank.unwrap_or(false) && params.rerank != Some(false);
+    let rerank_applied = rerank;
 
     // Construct SearchEngine per-request (cheap -- just references + optional reranker clone)
     let engine = SearchEngine::new(&state.store, &*state.embedder)
@@ -112,7 +127,7 @@ pub async fn search_handler(
             SearchResultView {
                 file_path: r.file_path,
                 heading_breadcrumb: r.heading_breadcrumb,
-                chunk_text: preview,
+                chunk_html: Safe(highlight_query_terms(&preview, &query)),
                 similarity_score: (r.similarity_score * 100.0).round() / 100.0,
             }
         })
@@ -126,6 +141,9 @@ pub async fn search_handler(
         results,
         result_count,
         active_nav: "search",
+        rerank_available,
+        rerank_checked,
+        rerank_applied,
     })
 }
 
@@ -146,9 +164,7 @@ pub struct IndexTemplate {
     pub active_nav: &'static str,
 }
 
-pub async fn index_handler(
-    State(state): State<Arc<AppState>>,
-) -> Result<IndexTemplate, AppError> {
+pub async fn index_handler(State(state): State<Arc<AppState>>) -> Result<IndexTemplate, AppError> {
     let file_counts = state.store.count_chunks_per_file().await?;
     let total_chunks: usize = file_counts.iter().map(|(_, count)| count).sum();
     let total_files = file_counts.len();

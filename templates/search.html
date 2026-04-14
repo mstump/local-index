@@ -15,19 +15,32 @@
     <option value="semantic"{% if mode == "semantic" %} selected{% endif %}>semantic</option>
     <option value="fts"{% if mode == "fts" %} selected{% endif %}>fts</option>
   </select>
+  {% if rerank_available %}
+  <label class="rerank-label text-secondary" title="Uses Anthropic to reorder the top candidates after retrieval.">
+    <input type="checkbox" name="rerank" value="true"{% if rerank_checked %} checked{% endif %}>
+    Rerank results
+  </label>
+  <input type="hidden" name="no_rerank" value="true"{% if rerank_checked %} disabled{% endif %}>
+  {% else %}
+  <label class="rerank-label text-secondary" title="Configure ANTHROPIC_API_KEY (see Settings) to enable reranking.">
+    <input type="checkbox" disabled>
+    Rerank results
+  </label>
+  <a href="/settings" class="text-secondary rerank-settings-link">Settings</a>
+  {% endif %}
   <button type="submit" class="search-button">Search Notes</button>
 </form>
 
 {% if query.is_some() %}
   {% if result_count > 0 %}
-    <p class="results-summary">Showing {{ result_count }} results for "{{ query.as_deref().unwrap_or_default() }}" ({{ mode }} mode)</p>
+    <p class="results-summary">Showing {{ result_count }} results for "{{ query.as_deref().unwrap_or_default() }}" ({{ mode }} mode){% if rerank_applied %} <span class="text-secondary">(reranked)</span>{% endif %}</p>
     {% for result in results %}
     <div class="result-card">
       <div class="result-header">
         <span class="result-path">{{ result.file_path }}{% if !result.heading_breadcrumb.is_empty() %} &rsaquo; {{ result.heading_breadcrumb }}{% endif %}</span>
         <span class="result-score">{{ result.similarity_score }}</span>
       </div>
-      <div class="result-body">{{ result.chunk_text }}</div>
+      <div class="result-body">{{ result.chunk_html }}</div>
     </div>
     {% endfor %}
   {% else %}
