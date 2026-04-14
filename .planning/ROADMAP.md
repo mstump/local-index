@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 Core Indexer** - Phases 1-6 (shipped 2026-04-13)
-- 🚧 **v1.1 Search UX & Observability** - Phases 7-8 (in progress)
+- ✅ **v1.1 Search UX & Observability** - Phases 7-8 (completed 2026-04-14)
 
 ## Phases
 
@@ -22,7 +22,7 @@
 ### v1.1 Search UX & Observability
 
 - [x] **Phase 7: Operational Logging** - Structured search/daemon logging, LanceDB noise suppression (completed 2026-04-14)
-- [ ] **Phase 8: Search UX Enhancements** - Reranking toggle and query term highlighting in web UI
+- [x] **Phase 8: Search UX Enhancements** - Reranking toggle and query term highlighting in web UI (completed 2026-04-14)
 
 ## Phase Details
 
@@ -117,6 +117,7 @@ Plans:
 ### Phase 8: Search UX Enhancements
 **Goal**: The web search UI surfaces reranking controls and highlights matching terms so operators find relevant results faster
 **Depends on**: Phase 7
+**Status**: Complete (2026-04-14)
 **Requirements**: WEB-07, WEB-08
 **Success Criteria** (what must be TRUE):
   1. The search page shows a "Rerank results" checkbox; checking it and searching sends rerank=true to the backend; results display a "(reranked)" badge; when ANTHROPIC_API_KEY is not set, the checkbox is visually disabled with a tooltip explaining why
@@ -126,7 +127,7 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 08-01: TBD
+- [x] 08-01: `08-01-PLAN.md` — rerank checkbox + hidden `no_rerank`, Safe highlighted snippets, `mark` CSS
 
 ## Progress
 
@@ -141,4 +142,4 @@ Plans:
 | 5. Web Dashboard | v1.0 | 3/3 | Complete | 2026-04-12 |
 | 6. Claude Code Integration | v1.0 | 1/1 | Complete | 2026-04-13 |
 | 7. Operational Logging | v1.1 | 1/1 | Complete    | 2026-04-14 |
-| 8. Search UX Enhancements | v1.1 | 0/? | Not started | - |
+| 8. Search UX Enhancements | v1.1 | 1/1 | Complete | 2026-04-14 |

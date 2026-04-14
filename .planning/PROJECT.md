@@ -8,16 +8,16 @@ A Rust daemon that watches a directory tree (initially an Obsidian vault), chunk
 
 Fast, accurate semantic search over a local markdown vault that Claude can query as a skill without any manual intervention.
 
-## Current Milestone: v1.1 — Search UX & Observability
+## Current Milestone: v1.1 — Search UX & Observability (complete 2026-04-14)
 
 **Goal:** Make search results more useful and operational logs actually readable.
 
-**Target features:**
-- Web UI: reranking toggle (expose Claude reranking in search UI)
-- Web UI: highlight matching words/phrases in result snippets
-- Logging: log search queries with mode, result count, and latency
-- Logging: log daemon file events (creates, modifies, renames, deletes) with indexing outcomes
-- Logging: suppress noisy LanceDB internal messages (full source paths)
+**Shipped in v1.1:**
+- Web UI: reranking toggle (Claude reranking exposed in search UI) — Phase 8
+- Web UI: highlight matching words/phrases in result snippets — Phase 8
+- Logging: search queries with mode, result count, and latency — Phase 7
+- Logging: daemon file events (creates, modifies, renames, deletes) with indexing outcomes — Phase 7
+- Logging: suppress noisy LanceDB internal messages (full source paths) — Phase 7
 
 ---
 
@@ -36,6 +36,11 @@ Fast, accurate semantic search over a local markdown vault that Claude can query
 - [x] Every search query logged at INFO with `query`, `mode`, `results_returned`, `latency_ms` (CLI: `search completed`; web: `web search completed`)
 - [x] Daemon file-watcher events logged at INFO with event type, path, `renamed_to` when applicable; indexing outcome with chunks added/removed/skipped
 - [x] LanceDB/Lance internal tracing suppressed below WARN in default `EnvFilter` (`lancedb=warn,lance=warn`); full override when `RUST_LOG` is set
+
+**Phase 8: Search UX Enhancements** (validated 2026-04-14)
+
+- [x] Search UI exposes a "Rerank results" checkbox; checked submits `rerank=true`; unchecked submits `no_rerank=true` via disabled hidden field; `(reranked)` badge when reranking ran; disabled state + tooltip + Settings link when reranker unavailable
+- [x] Snippet body highlights query terms (case-insensitive, word boundaries) with `<mark>`; HTML entity encoding on all user-controlled text segments
 
 **Phase 5: Web Dashboard** (validated 2026-04-12)
 
@@ -83,12 +88,9 @@ Fast, accurate semantic search over a local markdown vault that Claude can query
 - [x] YAML frontmatter parsing with heading breadcrumb extraction
 - [x] `tracing` structured logging with RUST_LOG and --log-level support
 
-### Active (v1.1)
+### Active (next milestone)
 
-**Web UI**
-
-- [ ] Search UI exposes a "Rerank results" checkbox; when checked, backend is called with `rerank=true`; results show a "(reranked)" indicator; checkbox disabled when `ANTHROPIC_API_KEY` is absent
-- [ ] Search result snippets highlight all query terms (case-insensitive, word boundary) using `<mark>` elements in the displayed chunk_text
+*None — define the next milestone in ROADMAP / MILESTONES when ready.*
 
 ### Out of Scope
 
@@ -149,4 +151,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-14 — Phase 7 (operational logging) validated; Phase 8 (search UX) next*
+*Last updated: 2026-04-14 — v1.1 complete: Phase 7 (operational logging) + Phase 8 (search UX) validated*

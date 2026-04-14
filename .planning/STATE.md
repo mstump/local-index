@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Search UX & Observability
-status: planning
-stopped_at: Phase 8 context gathered
-last_updated: "2026-04-14T19:27:58.166Z"
-last_activity: 2026-04-14
+status: idle
+stopped_at: Phase 8 complete — v1.1 milestone done
+last_updated: "2026-04-14T21:00:00.000Z"
+last_activity: 2026-04-14 — Phase 8 execution + verification
 progress:
   total_phases: 8
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  completed_phases: 2
+  total_plans: 2
+  completed_plans: 2
   percent: 100
 ---
 
@@ -21,22 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-14)
 
 **Core value:** Fast, accurate semantic search over a local markdown vault that Claude can query as a skill without any manual intervention.
-**Current focus:** Phase 08 — search-ux-enhancements
+**Current focus:** v1.1 milestone complete (Phases 7–8). No active phase — plan next work when ready.
 
 ## Current Position
 
-Phase: 8 (search-ux-enhancements)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-04-14
+Phase: —
+Plan: —
+Status: Idle
+Last activity: 2026-04-14 — Phase 8 shipped (search UX + highlights)
 
-Progress: [██████████░░░░░░░░░░] 50% (v1.1: Phase 7 complete, Phase 8 remaining)
+Progress: [████████████████████] 100% (v1.1: Phases 7–8 complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 3
+- Total plans completed: 4
 - Average duration: -
 - Total execution time: 0 hours
 
@@ -46,6 +46,7 @@ Progress: [██████████░░░░░░░░░░] 50% (v1
 |-------|-------|-------|----------|
 | 03 | 2 | - | - |
 | 7 | 1 | - | - |
+| 08 | 1 | - | - |
 
 **Recent Trend:**
 

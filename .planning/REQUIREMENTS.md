@@ -82,8 +82,8 @@
 
 ### Web UI
 
-- [ ] **WEB-07**: Search UI includes a "Rerank results" checkbox; when checked the search request includes `rerank=true`; results display a "(reranked)" indicator; checkbox is disabled when `ANTHROPIC_API_KEY` is not set
-- [ ] **WEB-08**: Search result snippets highlight all query terms (case-insensitive, word boundary match) using `<mark>` elements in the displayed chunk_text
+- [x] **WEB-07**: Search UI includes a "Rerank results" checkbox; when checked the search request includes `rerank=true`; results display a "(reranked)" indicator; checkbox is disabled when `ANTHROPIC_API_KEY` is not set
+- [x] **WEB-08**: Search result snippets highlight all query terms (case-insensitive, word boundary match) using `<mark>` elements in the displayed chunk_text
 
 ### Logging
 
@@ -193,8 +193,8 @@
 | LOG-01 | Phase 7 | Complete |
 | LOG-02 | Phase 7 | Complete |
 | LOG-03 | Phase 7 | Complete |
-| WEB-07 | Phase 8 | Pending |
-| WEB-08 | Phase 8 | Pending |
+| WEB-07 | Phase 8 | Satisfied |
+| WEB-08 | Phase 8 | Satisfied |
 
 **Coverage:**
 - v1 requirements: 45/45 complete
