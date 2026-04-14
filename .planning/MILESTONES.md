@@ -6,6 +6,7 @@
 **Phases:** 1–6
 
 **What shipped:**
+
 - Phase 1: CLI skeleton, markdown chunker with smart size-based splitting, YAML frontmatter parsing, structured logging
 - Phase 2: Voyage AI embeddings (voyage-3.5), LanceDB storage with Arrow schema, SHA-256 incremental indexing
 - Phase 3: Semantic/FTS/hybrid search (RRF k=60), path/tag filters, JSON/pretty output, integration tests

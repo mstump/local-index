@@ -10,7 +10,12 @@ use std::path::PathBuf;
 #[command(name = "local-index", version, about, long_about)]
 pub struct Cli {
     /// Set the log level (overrides RUST_LOG)
-    #[arg(long, global = true, env = "LOCAL_INDEX_LOG_LEVEL", default_value = "info")]
+    #[arg(
+        long,
+        global = true,
+        env = "LOCAL_INDEX_LOG_LEVEL",
+        default_value = "info"
+    )]
     pub log_level: String,
 
     /// Directory for index data (LanceDB, tantivy, metadata)

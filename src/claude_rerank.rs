@@ -49,7 +49,8 @@ impl AnthropicReranker {
     }
 
     pub fn new(api_key: String) -> Self {
-        let model = std::env::var("LOCAL_INDEX_RERANK_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
+        let model =
+            std::env::var("LOCAL_INDEX_RERANK_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
         Self {
             client: reqwest::Client::new(),
             api_key,
@@ -106,9 +107,10 @@ impl AnthropicReranker {
             )));
         }
 
-        let parsed: MessagesResponse = resp.json().await.map_err(|e| {
-            LocalIndexError::Rerank(format!("rerank response JSON error: {}", e))
-        })?;
+        let parsed: MessagesResponse = resp
+            .json()
+            .await
+            .map_err(|e| LocalIndexError::Rerank(format!("rerank response JSON error: {}", e)))?;
 
         let text = parsed
             .content
@@ -118,7 +120,8 @@ impl AnthropicReranker {
             .map(|s| s.as_str())
             .unwrap_or("");
 
-        let order = parse_rerank_json_content(text, candidates.len()).map_err(LocalIndexError::Rerank)?;
+        let order =
+            parse_rerank_json_content(text, candidates.len()).map_err(LocalIndexError::Rerank)?;
         Ok(apply_rerank_order(candidates, &order))
     }
 }
@@ -140,12 +143,7 @@ fn build_user_prompt(query: &str, candidates: &[SearchResult]) -> String {
         let excerpt = truncate_chars(&c.chunk_text, MAX_EXCERPT_CHARS);
         lines.push_str(&format!(
             "\n--- candidate {} ---\nfile: {}\nheading: {}\nlines: {}-{}\nexcerpt:\n{}\n",
-            i,
-            c.file_path,
-            c.heading_breadcrumb,
-            c.line_range.start,
-            c.line_range.end,
-            excerpt
+            i, c.file_path, c.heading_breadcrumb, c.line_range.start, c.line_range.end, excerpt
         ));
     }
     lines
@@ -166,8 +164,8 @@ fn truncate_chars(s: &str, max: usize) -> String {
 pub fn parse_rerank_json_content(text: &str, num_candidates: usize) -> Result<Vec<usize>, String> {
     let trimmed = text.trim();
     let json_str = extract_json_object_str(trimmed)?;
-    let payload: RerankPayload = serde_json::from_str(json_str)
-        .map_err(|e| format!("invalid rerank JSON: {}", e))?;
+    let payload: RerankPayload =
+        serde_json::from_str(json_str).map_err(|e| format!("invalid rerank JSON: {}", e))?;
     validate_order(&payload.indices, num_candidates)
 }
 
@@ -178,8 +176,12 @@ fn extract_json_object_str(text: &str) -> Result<&str, String> {
         }
     }
     // Strip ```json ... ``` wrapper if present
-    let start = text.find('{').ok_or_else(|| "no JSON object in rerank response".to_string())?;
-    let end = text.rfind('}').ok_or_else(|| "no closing brace in rerank response".to_string())?;
+    let start = text
+        .find('{')
+        .ok_or_else(|| "no JSON object in rerank response".to_string())?;
+    let end = text
+        .rfind('}')
+        .ok_or_else(|| "no closing brace in rerank response".to_string())?;
     if end < start {
         return Err("malformed JSON span in rerank response".to_string());
     }

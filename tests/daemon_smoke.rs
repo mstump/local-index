@@ -20,9 +20,7 @@ async fn test_daemon_health_and_metrics_endpoints() {
         .await
         .unwrap();
     assert_eq!(resp.status(), 200);
-    let body = axum::body::to_bytes(resp.into_body(), 1024)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 1024).await.unwrap();
     assert_eq!(&body[..], b"ok");
 
     // Test /metrics
@@ -31,9 +29,7 @@ async fn test_daemon_health_and_metrics_endpoints() {
         .await
         .unwrap();
     assert_eq!(resp.status(), 200);
-    let body = axum::body::to_bytes(resp.into_body(), 4096)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 4096).await.unwrap();
     let text = String::from_utf8(body.to_vec()).expect("valid utf8");
     assert!(text.is_ascii(), "metrics output should be ASCII");
 }

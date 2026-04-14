@@ -72,7 +72,8 @@ pub async fn run_daemon(
     let proc_store = Arc::clone(&store);
     let proc_embedder = Arc::clone(&embedder);
     tracker.spawn(async move {
-        processor::run_event_processor(event_rx, vault_path, proc_store, proc_embedder, proc_token).await;
+        processor::run_event_processor(event_rx, vault_path, proc_store, proc_embedder, proc_token)
+            .await;
     });
 
     // 8. Spawn HTTP server with combined metrics + dashboard router
@@ -110,7 +111,11 @@ pub async fn run_daemon(
 
 /// Run the HTTP server (dashboard + metrics) without file watching.
 /// Used by the `serve` command for read-only dashboard access.
-pub async fn run_serve(bind_addr: String, data_dir: String, log_level: String) -> anyhow::Result<()> {
+pub async fn run_serve(
+    bind_addr: String,
+    data_dir: String,
+    log_level: String,
+) -> anyhow::Result<()> {
     // 1. Install metrics recorder
     let prom_handle = metrics::setup_metrics()?;
 

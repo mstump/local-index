@@ -52,12 +52,7 @@ fn test_index_no_credentials() {
     // Create a markdown file so the command actually tries to do work
     fs::write(dir.path().join("note.md"), "# Test\nSome content\n").unwrap();
 
-    let output = run_index(
-        dir.path().to_str().unwrap(),
-        &[],
-        &[],
-        &["VOYAGE_API_KEY"],
-    );
+    let output = run_index(dir.path().to_str().unwrap(), &[], &[], &["VOYAGE_API_KEY"]);
 
     assert!(
         !output.status.success(),
@@ -186,6 +181,10 @@ fn test_index_json_output_non_tty() {
     assert!(
         json.get("errors").is_some(),
         "JSON should contain errors key"
+    );
+    assert!(
+        json.get("orphan_files_removed").is_some(),
+        "JSON should contain orphan_files_removed key"
     );
 }
 

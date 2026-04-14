@@ -1,9 +1,10 @@
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
 use std::sync::Arc;
 
 use arrow_array::{
-    types::Float32Type, Array, FixedSizeListArray, RecordBatch, RecordBatchIterator, StringArray,
-    UInt32Array,
+    Array, FixedSizeListArray, RecordBatch, RecordBatchIterator, StringArray, UInt32Array,
+    types::Float32Type,
 };
 use arrow_schema::{DataType, Field, Schema};
 use futures::TryStreamExt;
@@ -128,9 +129,13 @@ impl ChunkStore {
             .iter()
             .map(|c| c.file_path.to_string_lossy().to_string())
             .collect();
-        let file_path_array = Arc::new(StringArray::from(file_paths)) as Arc<dyn arrow_array::Array>;
+        let file_path_array =
+            Arc::new(StringArray::from(file_paths)) as Arc<dyn arrow_array::Array>;
 
-        let breadcrumbs: Vec<String> = chunks.iter().map(|c| c.heading_breadcrumb.clone()).collect();
+        let breadcrumbs: Vec<String> = chunks
+            .iter()
+            .map(|c| c.heading_breadcrumb.clone())
+            .collect();
         let breadcrumb_array =
             Arc::new(StringArray::from(breadcrumbs)) as Arc<dyn arrow_array::Array>;
 
@@ -242,6 +247,37 @@ impl ChunkStore {
             .await
             .map_err(|e| LocalIndexError::Database(e.to_string()))?;
         Ok(())
+    }
+
+    /// Delete chunks for every stored `file_path` that is not among the vault-relative paths
+    /// implied by `discovered_md_paths` (absolute paths under `vault_path`).
+    ///
+    /// Call after indexing so files removed from disk disappear from search even when
+    /// the daemon is not running. When `discovered_md_paths` is empty, every indexed file
+    /// is treated as absent and removed.
+    pub async fn prune_absent_markdown_files(
+        &self,
+        vault_path: &Path,
+        discovered_md_paths: &[std::path::PathBuf],
+    ) -> Result<usize, LocalIndexError> {
+        let present: HashSet<String> = discovered_md_paths
+            .iter()
+            .filter_map(|abs| {
+                abs.strip_prefix(vault_path)
+                    .ok()
+                    .map(|rel| rel.to_string_lossy().to_string())
+            })
+            .collect();
+
+        let stored = self.get_all_file_paths().await?;
+        let mut pruned_files = 0usize;
+        for path in stored {
+            if !present.contains(&path) {
+                self.delete_chunks_for_file(&path).await?;
+                pruned_files += 1;
+            }
+        }
+        Ok(pruned_files)
     }
 
     /// Check if the stored embedding model matches the configured model.
@@ -451,7 +487,10 @@ mod tests {
             make_test_chunk("notes/test.md", "body two", "## Sub"),
         ];
         let embeddings = vec![make_test_embedding(), make_test_embedding()];
-        let hashes = chunks.iter().map(|c| compute_content_hash(c)).collect::<Vec<_>>();
+        let hashes = chunks
+            .iter()
+            .map(|c| compute_content_hash(c))
+            .collect::<Vec<_>>();
 
         store
             .store_chunks(&chunks, &embeddings, &hashes, "voyage-3.5")
@@ -469,7 +508,10 @@ mod tests {
         let store = ChunkStore::open(db_path).await.unwrap();
 
         let retrieved = store.get_hashes_for_file("nonexistent.md").await.unwrap();
-        assert!(retrieved.is_empty(), "should return empty vec for unknown file");
+        assert!(
+            retrieved.is_empty(),
+            "should return empty vec for unknown file"
+        );
     }
 
     #[tokio::test]
@@ -483,8 +525,14 @@ mod tests {
         let chunks_b = vec![make_test_chunk("file_b.md", "body b", "# B")];
         let emb = vec![make_test_embedding()];
 
-        let hashes_a = chunks_a.iter().map(|c| compute_content_hash(c)).collect::<Vec<_>>();
-        let hashes_b = chunks_b.iter().map(|c| compute_content_hash(c)).collect::<Vec<_>>();
+        let hashes_a = chunks_a
+            .iter()
+            .map(|c| compute_content_hash(c))
+            .collect::<Vec<_>>();
+        let hashes_b = chunks_b
+            .iter()
+            .map(|c| compute_content_hash(c))
+            .collect::<Vec<_>>();
 
         store
             .store_chunks(&chunks_a, &emb, &hashes_a, "voyage-3.5")
@@ -507,11 +555,52 @@ mod tests {
 
         // file_b should still exist
         let hashes_b_result = store.get_hashes_for_file("file_b.md").await.unwrap();
-        assert_eq!(
-            hashes_b_result.len(),
-            1,
-            "file_b chunks should still exist"
+        assert_eq!(hashes_b_result.len(), 1, "file_b chunks should still exist");
+    }
+
+    #[tokio::test]
+    async fn prune_absent_markdown_files_removes_stale_paths() {
+        let tmp = tempfile::tempdir().unwrap();
+        let vault = tmp.path().join("vault");
+        std::fs::create_dir_all(&vault).unwrap();
+        let db_path = tmp.path().join("db").to_str().unwrap().to_string();
+        let store = ChunkStore::open(&db_path).await.unwrap();
+
+        let chunks_a = vec![make_test_chunk("gone.md", "a", "# A")];
+        let chunks_b = vec![make_test_chunk("kept.md", "b", "# B")];
+        let emb = vec![make_test_embedding()];
+        let ha = chunks_a
+            .iter()
+            .map(|c| compute_content_hash(c))
+            .collect::<Vec<_>>();
+        let hb = chunks_b
+            .iter()
+            .map(|c| compute_content_hash(c))
+            .collect::<Vec<_>>();
+        store
+            .store_chunks(&chunks_a, &emb, &ha, "voyage-3.5")
+            .await
+            .unwrap();
+        store
+            .store_chunks(&chunks_b, &emb, &hb, "voyage-3.5")
+            .await
+            .unwrap();
+
+        let kept_abs = vault.join("kept.md");
+        let n = store
+            .prune_absent_markdown_files(&vault, &[kept_abs])
+            .await
+            .unwrap();
+        assert_eq!(n, 1, "should prune exactly one absent file");
+
+        assert!(
+            store
+                .get_hashes_for_file("gone.md")
+                .await
+                .unwrap()
+                .is_empty()
         );
+        assert_eq!(store.get_hashes_for_file("kept.md").await.unwrap().len(), 1);
     }
 
     #[tokio::test]
@@ -535,7 +624,10 @@ mod tests {
 
         let chunks = vec![make_test_chunk("test.md", "body", "# H")];
         let emb = vec![make_test_embedding()];
-        let hashes = chunks.iter().map(|c| compute_content_hash(c)).collect::<Vec<_>>();
+        let hashes = chunks
+            .iter()
+            .map(|c| compute_content_hash(c))
+            .collect::<Vec<_>>();
         store
             .store_chunks(&chunks, &emb, &hashes, "voyage-3.5")
             .await
@@ -556,7 +648,10 @@ mod tests {
 
         let chunks = vec![make_test_chunk("test.md", "body", "# H")];
         let emb = vec![make_test_embedding()];
-        let hashes = chunks.iter().map(|c| compute_content_hash(c)).collect::<Vec<_>>();
+        let hashes = chunks
+            .iter()
+            .map(|c| compute_content_hash(c))
+            .collect::<Vec<_>>();
         store
             .store_chunks(&chunks, &emb, &hashes, "voyage-3.5")
             .await
@@ -583,7 +678,10 @@ mod tests {
 
         let chunks = vec![make_test_chunk("test.md", "body", "# H")];
         let emb = vec![make_test_embedding()];
-        let hashes = chunks.iter().map(|c| compute_content_hash(c)).collect::<Vec<_>>();
+        let hashes = chunks
+            .iter()
+            .map(|c| compute_content_hash(c))
+            .collect::<Vec<_>>();
         store
             .store_chunks(&chunks, &emb, &hashes, "voyage-3.5")
             .await
@@ -593,10 +691,7 @@ mod tests {
             .check_model_consistency("voyage-4", true)
             .await
             .unwrap();
-        assert_eq!(
-            result, true,
-            "mismatch with force should return Ok(true)"
-        );
+        assert_eq!(result, true, "mismatch with force should return Ok(true)");
     }
 
     #[test]
@@ -650,9 +745,16 @@ mod tests {
             make_test_chunk("a.md", "body2", "# H2"),
             make_test_chunk("b.md", "body3", "# H3"),
         ];
-        let embs = vec![make_test_embedding(), make_test_embedding(), make_test_embedding()];
+        let embs = vec![
+            make_test_embedding(),
+            make_test_embedding(),
+            make_test_embedding(),
+        ];
         let hashes: Vec<String> = chunks.iter().map(|c| compute_content_hash(c)).collect();
-        store.store_chunks(&chunks, &embs, &hashes, "voyage-3.5").await.unwrap();
+        store
+            .store_chunks(&chunks, &embs, &hashes, "voyage-3.5")
+            .await
+            .unwrap();
 
         let count = store.count_total_chunks().await.unwrap();
         assert_eq!(count, 3, "should have 3 chunks");
@@ -669,9 +771,16 @@ mod tests {
             make_test_chunk("a.md", "body2", "# H2"),
             make_test_chunk("b.md", "body3", "# H3"),
         ];
-        let embs = vec![make_test_embedding(), make_test_embedding(), make_test_embedding()];
+        let embs = vec![
+            make_test_embedding(),
+            make_test_embedding(),
+            make_test_embedding(),
+        ];
         let hashes: Vec<String> = chunks.iter().map(|c| compute_content_hash(c)).collect();
-        store.store_chunks(&chunks, &embs, &hashes, "voyage-3.5").await.unwrap();
+        store
+            .store_chunks(&chunks, &embs, &hashes, "voyage-3.5")
+            .await
+            .unwrap();
 
         let count = store.count_distinct_files().await.unwrap();
         assert_eq!(count, 2, "should have 2 distinct files");

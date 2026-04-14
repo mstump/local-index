@@ -186,10 +186,7 @@ mod tests {
             "should truncate text over 200 chars"
         );
         // Should NOT contain the full 300-char text
-        assert!(
-            !output.contains(&long_text),
-            "full text should not appear"
-        );
+        assert!(!output.contains(&long_text), "full text should not appear");
     }
 
     #[test]
@@ -206,10 +203,7 @@ mod tests {
             output.contains("No results found"),
             "should show no results message"
         );
-        assert!(
-            output.contains("nothing"),
-            "should include the query"
-        );
+        assert!(output.contains("nothing"), "should include the query");
     }
 
     #[test]
@@ -219,13 +213,7 @@ mod tests {
             mode: "semantic".to_string(),
             total: 2,
             results: vec![
-                make_result(
-                    "Main result",
-                    "notes/test.md",
-                    "# Main",
-                    0.9,
-                    None,
-                ),
+                make_result("Main result", "notes/test.md", "# Main", 0.9, None),
                 make_result(
                     "Context chunk",
                     "notes/test.md",

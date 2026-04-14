@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
-use arrow_array::{Array, RecordBatch, StringArray, UInt32Array};
-use arrow_array::types::{Float32Type, Float64Type};
 use arrow_array::cast::AsArray;
+use arrow_array::types::{Float32Type, Float64Type};
+use arrow_array::{Array, RecordBatch, StringArray, UInt32Array};
 use futures::TryStreamExt;
 use lance_index::scalar::FullTextSearchQuery;
-use lancedb::index::{scalar::FtsIndexBuilder, Index};
+use lancedb::DistanceType;
+use lancedb::index::{Index, scalar::FtsIndexBuilder};
 use lancedb::query::{ExecutableQuery, QueryBase, Select};
 use lancedb::rerankers::rrf::RRFReranker;
-use lancedb::DistanceType;
 
 use crate::claude_rerank::AnthropicReranker;
 use crate::error::LocalIndexError;
@@ -94,7 +94,8 @@ impl<'a, E: Embedder> SearchEngine<'a, E> {
 
         // Fetch context chunks if requested
         if opts.context > 0 && !results.is_empty() {
-            self.fetch_context_chunks(&mut results, opts.context).await?;
+            self.fetch_context_chunks(&mut results, opts.context)
+                .await?;
         }
 
         let response = SearchResponse {
@@ -499,7 +500,10 @@ fn normalize_and_build(raw: Vec<RawResult>, mode: ScoreMode) -> Vec<SearchResult
             let (similarity_score, semantic_score, fts_score) = match mode {
                 ScoreMode::Semantic => {
                     // semantic_score = 1.0 - (distance / 2.0)
-                    let sem = r.distance.map(|d| normalize_cosine_distance(d)).unwrap_or(0.0);
+                    let sem = r
+                        .distance
+                        .map(|d| normalize_cosine_distance(d))
+                        .unwrap_or(0.0);
                     (sem, Some(sem), None)
                 }
                 ScoreMode::Fts => {
@@ -618,11 +622,7 @@ mod tests {
     #[test]
     fn test_score_normalization_fts() {
         // scores [3.0, 6.0, 9.0] -> normalized to [0.333, 0.666, 1.0]
-        let raw = vec![
-            make_raw_fts(3.0),
-            make_raw_fts(6.0),
-            make_raw_fts(9.0),
-        ];
+        let raw = vec![make_raw_fts(3.0), make_raw_fts(6.0), make_raw_fts(9.0)];
         let results = normalize_and_build(raw, ScoreMode::Fts);
         assert_eq!(results.len(), 3);
 
@@ -646,9 +646,7 @@ mod tests {
         let results = normalize_and_build(raw, ScoreMode::Fts);
         assert_eq!(results.len(), 1);
         assert!((results[0].similarity_score - 1.0).abs() < 1e-10);
-        assert!(
-            (results[0].fts_score.unwrap() - 1.0).abs() < 1e-10
-        );
+        assert!((results[0].fts_score.unwrap() - 1.0).abs() < 1e-10);
     }
 
     #[test]

@@ -209,9 +209,6 @@ mod tests {
 
         let json = serde_json::to_value(&result).unwrap();
         assert_eq!(json.get("is_context").unwrap().as_bool().unwrap(), true);
-        assert_eq!(
-            json.get("context_for_index").unwrap().as_u64().unwrap(),
-            0
-        );
+        assert_eq!(json.get("context_for_index").unwrap().as_u64().unwrap(), 0);
     }
 }

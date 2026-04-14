@@ -101,9 +101,7 @@ mod tests {
     static HANDLE: OnceLock<PrometheusHandle> = OnceLock::new();
 
     fn get_or_init_handle() -> &'static PrometheusHandle {
-        HANDLE.get_or_init(|| {
-            setup_metrics().expect("setup_metrics should succeed")
-        })
+        HANDLE.get_or_init(|| setup_metrics().expect("setup_metrics should succeed"))
     }
 
     #[test]

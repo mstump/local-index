@@ -1,6 +1,6 @@
 use local_index::claude_rerank::AnthropicReranker;
-use local_index::search::types::LineRange;
 use local_index::search::SearchResult;
+use local_index::search::types::LineRange;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 

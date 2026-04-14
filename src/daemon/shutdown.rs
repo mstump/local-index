@@ -1,4 +1,4 @@
-use tokio::signal::unix::{signal, SignalKind};
+use tokio::signal::unix::{SignalKind, signal};
 use tokio_util::sync::CancellationToken;
 
 /// Set up signal handling. Returns a CancellationToken that is cancelled on SIGINT or SIGTERM.
@@ -12,8 +12,8 @@ pub fn setup_shutdown() -> CancellationToken {
     tokio::spawn(async move {
         // Register SIGTERM stream before the select! so the OS queues the signal
         // even if it arrives before we reach the await point.
-        let mut sigterm = signal(SignalKind::terminate())
-            .expect("failed to install SIGTERM handler");
+        let mut sigterm =
+            signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
 
         // First signal (either SIGINT or SIGTERM): graceful shutdown
         tokio::select! {

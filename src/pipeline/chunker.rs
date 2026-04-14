@@ -39,7 +39,11 @@ pub fn scan_break_points(text: &str) -> Vec<BreakPoint> {
 
             if after >= len {
                 // newline at end
-                points.push(BreakPoint { pos: newline_pos, score: 1.0, kind: "newline" });
+                points.push(BreakPoint {
+                    pos: newline_pos,
+                    score: 1.0,
+                    kind: "newline",
+                });
                 i += 1;
                 continue;
             }
@@ -64,32 +68,75 @@ pub fn scan_break_points(text: &str) -> Vec<BreakPoint> {
                         5 => "h5",
                         _ => "h6",
                     };
-                    points.push(BreakPoint { pos: newline_pos, score, kind });
+                    points.push(BreakPoint {
+                        pos: newline_pos,
+                        score,
+                        kind,
+                    });
                 } else if count > 6 {
                     // Not a heading, just a newline
-                    points.push(BreakPoint { pos: newline_pos, score: 1.0, kind: "newline" });
+                    points.push(BreakPoint {
+                        pos: newline_pos,
+                        score: 1.0,
+                        kind: "newline",
+                    });
                 } else {
                     // # not followed by space
-                    points.push(BreakPoint { pos: newline_pos, score: 1.0, kind: "newline" });
+                    points.push(BreakPoint {
+                        pos: newline_pos,
+                        score: 1.0,
+                        kind: "newline",
+                    });
                 }
-            } else if after + 2 < len && bytes[after] == b'`' && bytes[after + 1] == b'`' && bytes[after + 2] == b'`' {
-                points.push(BreakPoint { pos: newline_pos, score: 80.0, kind: "codeblock" });
+            } else if after + 2 < len
+                && bytes[after] == b'`'
+                && bytes[after + 1] == b'`'
+                && bytes[after + 2] == b'`'
+            {
+                points.push(BreakPoint {
+                    pos: newline_pos,
+                    score: 80.0,
+                    kind: "codeblock",
+                });
             } else if bytes[after] == b'\n' {
-                points.push(BreakPoint { pos: newline_pos, score: 20.0, kind: "blank" });
-            } else if after + 2 < len && (
-                (bytes[after] == b'-' && bytes[after + 1] == b'-' && bytes[after + 2] == b'-') ||
-                (bytes[after] == b'*' && bytes[after + 1] == b'*' && bytes[after + 2] == b'*') ||
-                (bytes[after] == b'_' && bytes[after + 1] == b'_' && bytes[after + 2] == b'_')
-            ) {
+                points.push(BreakPoint {
+                    pos: newline_pos,
+                    score: 20.0,
+                    kind: "blank",
+                });
+            } else if after + 2 < len
+                && ((bytes[after] == b'-' && bytes[after + 1] == b'-' && bytes[after + 2] == b'-')
+                    || (bytes[after] == b'*'
+                        && bytes[after + 1] == b'*'
+                        && bytes[after + 2] == b'*')
+                    || (bytes[after] == b'_'
+                        && bytes[after + 1] == b'_'
+                        && bytes[after + 2] == b'_'))
+            {
                 // Check if it's a horizontal rule (followed by newline or end)
                 let j = after + 3;
                 if j >= len || bytes[j] == b'\n' {
-                    points.push(BreakPoint { pos: newline_pos, score: 60.0, kind: "hr" });
+                    points.push(BreakPoint {
+                        pos: newline_pos,
+                        score: 60.0,
+                        kind: "hr",
+                    });
                 } else {
-                    points.push(BreakPoint { pos: newline_pos, score: 1.0, kind: "newline" });
+                    points.push(BreakPoint {
+                        pos: newline_pos,
+                        score: 1.0,
+                        kind: "newline",
+                    });
                 }
-            } else if after + 1 < len && ((bytes[after] == b'-' && bytes[after + 1] == b' ') || (bytes[after] == b'*' && bytes[after + 1] == b' ')) {
-                points.push(BreakPoint { pos: newline_pos, score: 5.0, kind: "list" });
+            } else if after + 1 < len
+                && ((bytes[after] == b'-' && bytes[after + 1] == b' ')
+                    || (bytes[after] == b'*' && bytes[after + 1] == b' '))
+            {
+                points.push(BreakPoint {
+                    pos: newline_pos,
+                    score: 5.0,
+                    kind: "list",
+                });
             } else if bytes[after].is_ascii_digit() {
                 // Check for ordered list: digit(s) + '.' + ' '
                 let mut j = after;
@@ -97,12 +144,24 @@ pub fn scan_break_points(text: &str) -> Vec<BreakPoint> {
                     j += 1;
                 }
                 if j < len && bytes[j] == b'.' && j + 1 < len && bytes[j + 1] == b' ' {
-                    points.push(BreakPoint { pos: newline_pos, score: 5.0, kind: "numlist" });
+                    points.push(BreakPoint {
+                        pos: newline_pos,
+                        score: 5.0,
+                        kind: "numlist",
+                    });
                 } else {
-                    points.push(BreakPoint { pos: newline_pos, score: 1.0, kind: "newline" });
+                    points.push(BreakPoint {
+                        pos: newline_pos,
+                        score: 1.0,
+                        kind: "newline",
+                    });
                 }
             } else {
-                points.push(BreakPoint { pos: newline_pos, score: 1.0, kind: "newline" });
+                points.push(BreakPoint {
+                    pos: newline_pos,
+                    score: 1.0,
+                    kind: "newline",
+                });
             }
 
             i += 1;
@@ -124,14 +183,20 @@ pub fn find_code_fences(text: &str) -> Vec<CodeFenceRegion> {
 
     let mut i = 0;
     while i < len {
-        if bytes[i] == b'\n' && i + 3 <= len && &bytes[i + 1..i + 1 + 3.min(len - i - 1)] == b"```"[..3.min(len - i - 1)].as_ref() {
+        if bytes[i] == b'\n'
+            && i + 3 <= len
+            && &bytes[i + 1..i + 1 + 3.min(len - i - 1)] == b"```"[..3.min(len - i - 1)].as_ref()
+        {
             // Check for at least 3 backticks
             if i + 3 < len && bytes[i + 1] == b'`' && bytes[i + 2] == b'`' && bytes[i + 3] == b'`' {
                 if !in_fence {
                     fence_start = i;
                     in_fence = true;
                 } else {
-                    regions.push(CodeFenceRegion { start: fence_start, end: i + 4 });
+                    regions.push(CodeFenceRegion {
+                        start: fence_start,
+                        end: i + 4,
+                    });
                     in_fence = false;
                 }
             }
@@ -151,7 +216,10 @@ pub fn find_code_fences(text: &str) -> Vec<CodeFenceRegion> {
     }
 
     if in_fence {
-        regions.push(CodeFenceRegion { start: fence_start, end: len });
+        regions.push(CodeFenceRegion {
+            start: fence_start,
+            end: len,
+        });
     }
 
     regions
@@ -219,10 +287,17 @@ fn chunk_by_size(content: &str) -> Vec<(usize, usize)> {
     let mut char_pos = 0;
 
     while char_pos < content.len() {
-        let target_end = floor_char_boundary(content, (char_pos + CHUNK_SIZE_CHARS).min(content.len()));
+        let target_end =
+            floor_char_boundary(content, (char_pos + CHUNK_SIZE_CHARS).min(content.len()));
 
         let end_pos = if target_end < content.len() {
-            let best = find_best_cutoff(&breakpoints, target_end, CHUNK_WINDOW_CHARS, DECAY_FACTOR, &fences);
+            let best = find_best_cutoff(
+                &breakpoints,
+                target_end,
+                CHUNK_WINDOW_CHARS,
+                DECAY_FACTOR,
+                &fences,
+            );
             if best > char_pos && best <= target_end {
                 best
             } else {
@@ -262,8 +337,7 @@ struct HeadingInfo {
 /// Headings are included in chunk bodies for better embedding quality.
 /// `heading_breadcrumb` tracks the active heading hierarchy at each chunk's start position.
 pub fn chunk_markdown(content: &str, file_path: &Path) -> Result<ChunkedFile, LocalIndexError> {
-    let options =
-        Options::ENABLE_YAML_STYLE_METADATA_BLOCKS | Options::ENABLE_HEADING_ATTRIBUTES;
+    let options = Options::ENABLE_YAML_STYLE_METADATA_BLOCKS | Options::ENABLE_HEADING_ATTRIBUTES;
 
     let mut heading_stack: Vec<(HeadingLevel, String)> = Vec::new();
     let mut current_heading_text = String::new();
@@ -287,9 +361,8 @@ pub fn chunk_markdown(content: &str, file_path: &Path) -> Result<ChunkedFile, Lo
                 // serde_yml / libyml can panic on certain YAML inputs (e.g. oversized flow
                 // scalars triggering an overflow in libyml-0.0.5). Catch the panic so a
                 // single malformed file doesn't abort the whole index run.
-                let parse_result = std::panic::catch_unwind(|| {
-                    serde_yml::from_str::<Frontmatter>(&yaml_text)
-                });
+                let parse_result =
+                    std::panic::catch_unwind(|| serde_yml::from_str::<Frontmatter>(&yaml_text));
                 match parse_result {
                     Ok(Ok(fm)) => frontmatter = fm,
                     Ok(Err(e)) => {
@@ -297,7 +370,9 @@ pub fn chunk_markdown(content: &str, file_path: &Path) -> Result<ChunkedFile, Lo
                         frontmatter = Frontmatter::default();
                     }
                     Err(_) => {
-                        tracing::warn!("YAML frontmatter parser panicked (likely libyml bug on this input); treating as content");
+                        tracing::warn!(
+                            "YAML frontmatter parser panicked (likely libyml bug on this input); treating as content"
+                        );
                         frontmatter = Frontmatter::default();
                     }
                 }
@@ -329,7 +404,10 @@ pub fn chunk_markdown(content: &str, file_path: &Path) -> Result<ChunkedFile, Lo
                     last.1 = current_heading_text.clone();
                 }
                 let bc = breadcrumb(&heading_stack);
-                let level = heading_stack.last().map(|(l, _)| heading_level_to_u8(*l)).unwrap_or(0);
+                let level = heading_stack
+                    .last()
+                    .map(|(l, _)| heading_level_to_u8(*l))
+                    .unwrap_or(0);
 
                 // Record the heading position - use start of the heading line
                 // Find the \n before the heading start, or use the range start itself
@@ -371,7 +449,8 @@ pub fn chunk_markdown(content: &str, file_path: &Path) -> Result<ChunkedFile, Lo
         let (heading_breadcrumb, heading_level) = find_active_heading(&headings, abs_start);
 
         let line_start = byte_offset_to_line(content, abs_start);
-        let line_end = byte_offset_to_line(content, (frontmatter_end_byte + rel_end).saturating_sub(1));
+        let line_end =
+            byte_offset_to_line(content, (frontmatter_end_byte + rel_end).saturating_sub(1));
 
         chunks.push(Chunk {
             file_path: file_path.to_path_buf(),
@@ -468,9 +547,16 @@ mod tests {
     fn test_tiny_file_single_chunk() {
         let content = "# H1\nbody1\n## H2\nbody2\n";
         let result = chunk(content);
-        assert_eq!(result.chunks.len(), 1, "file smaller than CHUNK_SIZE_CHARS should produce 1 chunk");
+        assert_eq!(
+            result.chunks.len(),
+            1,
+            "file smaller than CHUNK_SIZE_CHARS should produce 1 chunk"
+        );
         // Body includes headings
-        assert!(result.chunks[0].body.contains("# H1"), "body should contain heading text");
+        assert!(
+            result.chunks[0].body.contains("# H1"),
+            "body should contain heading text"
+        );
         assert!(result.chunks[0].body.contains("body1"));
         assert!(result.chunks[0].body.contains("## H2"));
         assert!(result.chunks[0].body.contains("body2"));
@@ -480,7 +566,11 @@ mod tests {
     fn test_no_headings_single_chunk() {
         let content = "Just some plain text.\nAnother paragraph.\n";
         let result = chunk(content);
-        assert_eq!(result.chunks.len(), 1, "no-heading file should produce 1 chunk");
+        assert_eq!(
+            result.chunks.len(),
+            1,
+            "no-heading file should produce 1 chunk"
+        );
         assert_eq!(result.chunks[0].heading_breadcrumb, "");
         assert_eq!(result.chunks[0].heading_level, 0);
         assert!(result.chunks[0].body.contains("Just some plain text."));
@@ -493,8 +583,14 @@ mod tests {
         assert_eq!(result.chunks.len(), 1);
         assert_eq!(result.frontmatter.tags, vec!["test", "notes"]);
         for c in &result.chunks {
-            assert!(!c.body.contains("tags:"), "frontmatter should not appear in chunk body");
-            assert!(!c.body.contains("---"), "frontmatter delimiters should not appear in chunk body");
+            assert!(
+                !c.body.contains("tags:"),
+                "frontmatter should not appear in chunk body"
+            );
+            assert!(
+                !c.body.contains("---"),
+                "frontmatter delimiters should not appear in chunk body"
+            );
         }
     }
 
@@ -505,15 +601,24 @@ mod tests {
         content.push_str("# Main Title\n\n");
         // Fill with text to exceed CHUNK_SIZE_CHARS
         for i in 0..200 {
-            content.push_str(&format!("This is paragraph number {} with some filler text to take up space.\n\n", i));
+            content.push_str(&format!(
+                "This is paragraph number {} with some filler text to take up space.\n\n",
+                i
+            ));
         }
         content.push_str("## Section Two\n\n");
         for i in 0..200 {
-            content.push_str(&format!("More content in section two, paragraph {}.\n\n", i));
+            content.push_str(&format!(
+                "More content in section two, paragraph {}.\n\n",
+                i
+            ));
         }
 
         let result = chunk(&content);
-        assert!(result.chunks.len() >= 2, "content should split into multiple chunks");
+        assert!(
+            result.chunks.len() >= 2,
+            "content should split into multiple chunks"
+        );
 
         // First chunk should have "# Main Title" breadcrumb
         assert_eq!(result.chunks[0].heading_breadcrumb, "# Main Title");
@@ -527,7 +632,10 @@ mod tests {
                 break;
             }
         }
-        assert!(found_section_two || result.chunks.len() > 1, "should find chunk with Section Two breadcrumb");
+        assert!(
+            found_section_two || result.chunks.len() > 1,
+            "should find chunk with Section Two breadcrumb"
+        );
     }
 
     #[test]
@@ -535,11 +643,17 @@ mod tests {
         // Create content that requires multiple chunks
         let mut content = String::new();
         for i in 0..300 {
-            content.push_str(&format!("Line number {} with padding text to fill space.\n", i));
+            content.push_str(&format!(
+                "Line number {} with padding text to fill space.\n",
+                i
+            ));
         }
 
         let result = chunk(&content);
-        assert!(result.chunks.len() >= 2, "content should produce multiple chunks");
+        assert!(
+            result.chunks.len() >= 2,
+            "content should produce multiple chunks"
+        );
 
         // Check overlap: second chunk should start before end of first chunk
         // The overlap should be approximately CHUNK_OVERLAP_CHARS
@@ -547,12 +661,16 @@ mod tests {
         let second_body = &result.chunks[1].body;
 
         // Find the overlap by checking if some of the first chunk's end appears in the second chunk's start
-        let overlap_region = &result.chunks[0].body[first_end.saturating_sub(CHUNK_OVERLAP_CHARS)..];
+        let overlap_region =
+            &result.chunks[0].body[first_end.saturating_sub(CHUNK_OVERLAP_CHARS)..];
         let _overlap_start = second_body.find(&overlap_region[..overlap_region.len().min(50)]);
         // We just verify the second chunk starts before the first chunk ends in terms of source position
-        assert!(result.chunks[1].line_start < result.chunks[0].line_end + 5,
+        assert!(
+            result.chunks[1].line_start < result.chunks[0].line_end + 5,
             "chunks should overlap: chunk2 start line {} should be near chunk1 end line {}",
-            result.chunks[1].line_start, result.chunks[0].line_end);
+            result.chunks[1].line_start,
+            result.chunks[0].line_end
+        );
     }
 
     #[test]
@@ -612,22 +730,26 @@ mod tests {
 
         // Find the chunk boundary - one of the chunks should start right at "## Important Section"
         let _has_heading_boundary = result.chunks.iter().any(|c| {
-            c.body.starts_with("## Important Section") ||
-            c.body.starts_with("\n## Important Section")
+            c.body.starts_with("## Important Section")
+                || c.body.starts_with("\n## Important Section")
         });
 
         // The algorithm should prefer splitting at the heading over a plain blank line
         // This is verified by the heading appearing at the start of a chunk
         if result.chunks.len() >= 2 {
             // At least check that a chunk has the heading in its breadcrumb or body start
-            let any_heading_start = result.chunks.iter().any(|c| {
-                c.body.trim_start().starts_with("## Important Section")
-            });
+            let any_heading_start = result
+                .chunks
+                .iter()
+                .any(|c| c.body.trim_start().starts_with("## Important Section"));
             // Soft assertion - the scoring should prefer headings
             if !any_heading_start {
                 // The heading might be in the middle of a chunk if the content is arranged differently
                 // Just verify the chunk structure is valid
-                assert!(result.chunks.len() >= 2, "content should produce multiple chunks");
+                assert!(
+                    result.chunks.len() >= 2,
+                    "content should produce multiple chunks"
+                );
             }
         }
     }
@@ -636,8 +758,16 @@ mod tests {
     fn test_malformed_frontmatter_still_chunks() {
         let content = "---\n{invalid yaml\n---\n# Title\nContent here\n";
         let result = chunk(content);
-        assert!(result.chunks.len() >= 1, "content should still be chunked despite invalid frontmatter");
-        assert!(result.chunks.iter().any(|c| c.body.contains("Content here")));
+        assert!(
+            result.chunks.len() >= 1,
+            "content should still be chunked despite invalid frontmatter"
+        );
+        assert!(
+            result
+                .chunks
+                .iter()
+                .any(|c| c.body.contains("Content here"))
+        );
     }
 
     #[test]
@@ -655,7 +785,11 @@ mod tests {
         let result = chunk(content);
         assert_eq!(result.chunks.len(), 1);
         // Content starts after frontmatter (line 4)
-        assert!(result.chunks[0].line_start >= 4, "line_start should be after frontmatter, got {}", result.chunks[0].line_start);
+        assert!(
+            result.chunks[0].line_start >= 4,
+            "line_start should be after frontmatter, got {}",
+            result.chunks[0].line_start
+        );
     }
 
     #[test]
@@ -684,13 +818,18 @@ mod tests {
         content.push_str("Deep body unique marker at the end.\n");
 
         let result = chunk(&content);
-        assert!(result.chunks.len() >= 2, "should produce multiple chunks, got {}", result.chunks.len());
+        assert!(
+            result.chunks.len() >= 2,
+            "should produce multiple chunks, got {}",
+            result.chunks.len()
+        );
 
         // The last chunk should still have the h6 breadcrumb since no new headings appear
         let last = result.chunks.last().unwrap();
         assert!(
             last.heading_breadcrumb.contains("###### H6"),
-            "last chunk should still have h6 breadcrumb: got '{}'", last.heading_breadcrumb
+            "last chunk should still have h6 breadcrumb: got '{}'",
+            last.heading_breadcrumb
         );
     }
 
@@ -698,14 +837,21 @@ mod tests {
     fn test_content_hash_differs_for_different_bodies() {
         let hash1 = compute_content_hash("body one");
         let hash2 = compute_content_hash("body two");
-        assert_ne!(hash1, hash2, "different bodies should produce different hashes");
+        assert_ne!(
+            hash1, hash2,
+            "different bodies should produce different hashes"
+        );
     }
 
     #[test]
     fn test_frontmatter_only_produces_no_chunks() {
         let content = "---\ntags:\n  - test\n---\n";
         let result = chunk(content);
-        assert_eq!(result.chunks.len(), 0, "frontmatter-only file should produce 0 chunks");
+        assert_eq!(
+            result.chunks.len(),
+            0,
+            "frontmatter-only file should produce 0 chunks"
+        );
         assert_eq!(result.frontmatter.tags, vec!["test"]);
     }
 
@@ -739,9 +885,16 @@ mod tests {
     fn test_large_content_splits_into_chunks() {
         let mut content = String::new();
         for i in 0..500 {
-            content.push_str(&format!("This is line {} with some content to fill space here.\n", i));
+            content.push_str(&format!(
+                "This is line {} with some content to fill space here.\n",
+                i
+            ));
         }
         let result = chunk(&content);
-        assert!(result.chunks.len() > 1, "large content should produce multiple chunks, got {}", result.chunks.len());
+        assert!(
+            result.chunks.len() > 1,
+            "large content should produce multiple chunks, got {}",
+            result.chunks.len()
+        );
     }
 }

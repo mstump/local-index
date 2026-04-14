@@ -1,5 +1,5 @@
-use notify::event::{ModifyKind, RenameMode};
 use notify::EventKind;
+use notify::event::{ModifyKind, RenameMode};
 use notify_debouncer_full::DebouncedEvent;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -10,7 +10,7 @@ use tokio_util::sync::CancellationToken;
 use crate::daemon::metrics;
 use crate::pipeline::chunker::chunk_markdown;
 use crate::pipeline::embedder::Embedder;
-use crate::pipeline::store::{compute_content_hash, ChunkStore};
+use crate::pipeline::store::{ChunkStore, compute_content_hash};
 use crate::search::SearchEngine;
 
 /// Run the event processing loop. Receives batches of DebouncedEvents from the
@@ -280,7 +280,11 @@ async fn reindex_file<E: Embedder>(
     metrics::record_embedding_latency(embed_start.elapsed());
 
     // Compute hashes
-    let hashes: Vec<String> = chunked.chunks.iter().map(|c| compute_content_hash(c)).collect();
+    let hashes: Vec<String> = chunked
+        .chunks
+        .iter()
+        .map(|c| compute_content_hash(c))
+        .collect();
 
     // Delete old + store new
     let del_ok = store.delete_chunks_for_file(&relative_str).await.is_ok();
@@ -290,7 +294,12 @@ async fn reindex_file<E: Embedder>(
 
     let chunk_count = chunked.chunks.len() as u64;
     match store
-        .store_chunks(&chunked.chunks, &result.embeddings, &hashes, embedder.model_id())
+        .store_chunks(
+            &chunked.chunks,
+            &result.embeddings,
+            &hashes,
+            embedder.model_id(),
+        )
         .await
     {
         Ok(()) => {

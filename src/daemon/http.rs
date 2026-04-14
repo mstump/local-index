@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use axum::routing::get;
 use axum::Router;
+use axum::routing::get;
 use metrics_exporter_prometheus::PrometheusHandle;
 
 use crate::web::context::AppState;

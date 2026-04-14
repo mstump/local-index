@@ -6,17 +6,16 @@ use indicatif::{ProgressBar, ProgressStyle};
 use local_index::credentials::resolve_voyage_key;
 use local_index::pipeline::chunker::chunk_markdown;
 use local_index::pipeline::embedder::{Embedder, VoyageEmbedder};
-use local_index::pipeline::store::{compute_content_hash, ChunkStore};
+use local_index::pipeline::store::{ChunkStore, compute_content_hash};
 use local_index::pipeline::walker::discover_markdown_files;
 use std::collections::HashSet;
 use std::io::IsTerminal;
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt};
 
 fn init_logging(log_level: &str) {
     // RUST_LOG takes precedence if set; otherwise use --log-level with LanceDB noise suppressed
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-        EnvFilter::new(format!("{},lancedb=warn,lance=warn", log_level))
-    });
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new(format!("{},lancedb=warn,lance=warn", log_level)));
 
     fmt()
         .with_env_filter(filter)
@@ -41,10 +40,13 @@ async fn main() -> Result<()> {
     tracing::debug!(log_level = %cli.log_level, "logging initialized");
 
     match &cli.command {
-        cli::Command::Index { path, force_reindex } => {
-            let vault_path = path.canonicalize().map_err(|e| {
-                anyhow::anyhow!("Invalid vault path '{}': {}", path.display(), e)
-            })?;
+        cli::Command::Index {
+            path,
+            force_reindex,
+        } => {
+            let vault_path = path
+                .canonicalize()
+                .map_err(|e| anyhow::anyhow!("Invalid vault path '{}': {}", path.display(), e))?;
 
             tracing::info!(
                 path = %vault_path.display(),
@@ -118,9 +120,7 @@ async fn main() -> Result<()> {
                     }
                 };
 
-                let relative_path = file_path
-                    .strip_prefix(&vault_path)
-                    .unwrap_or(file_path);
+                let relative_path = file_path.strip_prefix(&vault_path).unwrap_or(file_path);
                 let relative_path_str = relative_path.to_string_lossy().to_string();
 
                 let chunked_file = match chunk_markdown(&content, relative_path) {
@@ -139,7 +139,11 @@ async fn main() -> Result<()> {
                 let all_file_chunks = chunked_file.chunks;
 
                 if all_file_chunks.is_empty() {
-                    if store.delete_chunks_for_file(&relative_path_str).await.is_ok() {
+                    if store
+                        .delete_chunks_for_file(&relative_path_str)
+                        .await
+                        .is_ok()
+                    {
                         cleared_empty_files = true;
                     } else {
                         tracing::warn!(
@@ -163,8 +167,10 @@ async fn main() -> Result<()> {
                 }
 
                 // Compute content hashes for all chunks
-                let computed_hashes: Vec<String> =
-                    all_file_chunks.iter().map(|c| compute_content_hash(c)).collect();
+                let computed_hashes: Vec<String> = all_file_chunks
+                    .iter()
+                    .map(|c| compute_content_hash(c))
+                    .collect();
                 let computed_hash_set: HashSet<&str> =
                     computed_hashes.iter().map(|h| h.as_str()).collect();
 
@@ -337,9 +343,9 @@ async fn main() -> Result<()> {
             }
         }
         cli::Command::Daemon { path, bind } => {
-            let vault_path = path.canonicalize().map_err(|e| {
-                anyhow::anyhow!("Invalid vault path '{}': {}", path.display(), e)
-            })?;
+            let vault_path = path
+                .canonicalize()
+                .map_err(|e| anyhow::anyhow!("Invalid vault path '{}': {}", path.display(), e))?;
 
             let data_dir = cli
                 .data_dir
@@ -381,7 +387,9 @@ async fn main() -> Result<()> {
             );
 
             // Resolve data directory
-            let data_dir = cli.data_dir.clone()
+            let data_dir = cli
+                .data_dir
+                .clone()
                 .unwrap_or_else(|| std::env::current_dir().unwrap().join(".local-index"));
 
             if !data_dir.exists() {
@@ -437,7 +445,9 @@ async fn main() -> Result<()> {
             tracing::info!("status command invoked");
 
             // Resolve data directory (same pattern as search command)
-            let data_dir = cli.data_dir.clone()
+            let data_dir = cli
+                .data_dir
+                .clone()
                 .unwrap_or_else(|| std::env::current_dir().unwrap().join(".local-index"));
 
             let is_tty = std::io::stdout().is_terminal();
@@ -484,17 +494,16 @@ async fn main() -> Result<()> {
             }
         }
         cli::Command::Serve { bind } => {
-            let data_dir = cli.data_dir.clone()
-                .unwrap_or_else(|| {
-                    // Per CONTEXT.md: defaults to $LOCAL_INDEX_DATA_DIR or ~/.local-index
-                    if let Ok(env_dir) = std::env::var("LOCAL_INDEX_DATA_DIR") {
-                        std::path::PathBuf::from(env_dir)
-                    } else {
-                        dirs::home_dir()
-                            .unwrap_or_else(|| std::path::PathBuf::from("."))
-                            .join(".local-index")
-                    }
-                });
+            let data_dir = cli.data_dir.clone().unwrap_or_else(|| {
+                // Per CONTEXT.md: defaults to $LOCAL_INDEX_DATA_DIR or ~/.local-index
+                if let Ok(env_dir) = std::env::var("LOCAL_INDEX_DATA_DIR") {
+                    std::path::PathBuf::from(env_dir)
+                } else {
+                    dirs::home_dir()
+                        .unwrap_or_else(|| std::path::PathBuf::from("."))
+                        .join(".local-index")
+                }
+            });
             let db_path = data_dir.to_string_lossy().to_string();
 
             tracing::info!(bind = %bind, data_dir = %db_path, "starting serve");

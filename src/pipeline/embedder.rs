@@ -130,9 +130,7 @@ impl VoyageEmbedder {
                 .json(&request_body)
                 .send()
                 .await
-                .map_err(|e| {
-                    LocalIndexError::Embedding(format!("HTTP request failed: {}", e))
-                })?;
+                .map_err(|e| LocalIndexError::Embedding(format!("HTTP request failed: {}", e)))?;
 
             let status = response.status();
 
@@ -162,9 +160,7 @@ impl VoyageEmbedder {
             }
 
             // Transient errors: retry with backoff
-            if status == reqwest::StatusCode::TOO_MANY_REQUESTS
-                || status.is_server_error()
-            {
+            if status == reqwest::StatusCode::TOO_MANY_REQUESTS || status.is_server_error() {
                 if attempt >= MAX_RETRIES {
                     return Err(LocalIndexError::Embedding(format!(
                         "API request failed after {} retries: {}",
@@ -213,9 +209,7 @@ impl Embedder for VoyageEmbedder {
         let mut model_name = self.model.clone();
 
         for batch in texts.chunks(self.batch_size) {
-            let result = self
-                .embed_batch_with_retry(batch.to_vec())
-                .await?;
+            let result = self.embed_batch_with_retry(batch.to_vec()).await?;
             all_embeddings.extend(result.embeddings);
             total_tokens += result.total_tokens;
             model_name = result.model;
@@ -266,10 +260,7 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path("/v1/embeddings"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(mock_voyage_response(2, 100)),
-            )
+            .respond_with(ResponseTemplate::new(200).set_body_json(mock_voyage_response(2, 100)))
             .mount(&server)
             .await;
 
@@ -322,10 +313,7 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path("/v1/embeddings"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(mock_voyage_response(1, 50)),
-            )
+            .respond_with(ResponseTemplate::new(200).set_body_json(mock_voyage_response(1, 50)))
             .mount(&server)
             .await;
 
@@ -412,17 +400,18 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path("/v1/embeddings"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(mock_voyage_response(1, 25)),
-            )
+            .respond_with(ResponseTemplate::new(200).set_body_json(mock_voyage_response(1, 25)))
             .mount(&server)
             .await;
 
         let embedder = VoyageEmbedder::with_base_url("test-key".into(), server.uri());
         let result = embedder.embed(&["hello".to_string()]).await;
 
-        assert!(result.is_ok(), "should succeed on 2nd attempt: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "should succeed on 2nd attempt: {:?}",
+            result
+        );
         assert_eq!(result.unwrap().total_tokens, 25);
     }
 }

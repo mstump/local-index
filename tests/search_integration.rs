@@ -2,10 +2,8 @@ use std::path::PathBuf;
 
 use local_index::error::LocalIndexError;
 use local_index::pipeline::embedder::Embedder;
-use local_index::pipeline::store::{compute_content_hash, ChunkStore};
-use local_index::search::{
-    format_json, SearchEngine, SearchMode, SearchOptions,
-};
+use local_index::pipeline::store::{ChunkStore, compute_content_hash};
+use local_index::search::{SearchEngine, SearchMode, SearchOptions, format_json};
 use local_index::types::{Chunk, EmbeddingResult, Frontmatter};
 
 // -- Mock embedder that returns deterministic vectors without API calls --
@@ -147,7 +145,10 @@ async fn test_semantic_search() {
     };
 
     let response = engine.search(&opts).await.unwrap();
-    assert!(!response.results.is_empty(), "semantic search should return results");
+    assert!(
+        !response.results.is_empty(),
+        "semantic search should return results"
+    );
     assert_eq!(response.mode, "semantic");
 
     for result in &response.results {
@@ -189,7 +190,10 @@ async fn test_fts_search() {
     };
 
     let response = engine.search(&opts).await.unwrap();
-    assert!(!response.results.is_empty(), "FTS search for 'Rust' should return results");
+    assert!(
+        !response.results.is_empty(),
+        "FTS search for 'Rust' should return results"
+    );
     assert_eq!(response.mode, "fts");
 
     for result in &response.results {
@@ -238,7 +242,10 @@ async fn test_hybrid_search() {
     };
 
     let response = engine.search(&opts).await.unwrap();
-    assert!(!response.results.is_empty(), "hybrid search should return results");
+    assert!(
+        !response.results.is_empty(),
+        "hybrid search should return results"
+    );
     assert_eq!(response.mode, "hybrid");
 
     // Hybrid mode should have similarity_score set
@@ -278,11 +285,11 @@ async fn test_json_output_shape() {
     assert!(value.get("query").is_some(), "JSON must have 'query' key");
     assert!(value.get("mode").is_some(), "JSON must have 'mode' key");
     assert!(value.get("total").is_some(), "JSON must have 'total' key");
-    assert!(value.get("results").is_some(), "JSON must have 'results' key");
     assert!(
-        value["results"].is_array(),
-        "'results' must be an array"
+        value.get("results").is_some(),
+        "JSON must have 'results' key"
     );
+    assert!(value["results"].is_array(), "'results' must be an array");
 }
 
 #[tokio::test]
