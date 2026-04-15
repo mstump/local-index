@@ -20,6 +20,10 @@ pub enum LocalIndexError {
     Rerank(String),
     #[error("Ignore walk error: {0}")]
     Ignore(#[from] ignore::Error),
+    #[error("asset too large: {bytes} bytes (max {max_bytes})")]
+    AssetTooLarge { bytes: usize, max_bytes: usize },
+    #[error("PDF error: {0}")]
+    Pdf(#[from] lopdf::Error),
 }
 
 impl LocalIndexError {

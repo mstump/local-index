@@ -3,6 +3,8 @@
 //! Synthetic markdown produced from assets is fed through [`crate::pipeline::chunker::chunk_markdown`]
 //! with the **source** asset [`Path`] for provenance (wired in Plan 09-03).
 
+#![allow(dead_code, unused_imports)] // facade consumed by Plans 09-02 / 09-03
+
 mod cache;
 mod ignore_walk;
 mod pdf_local;
