@@ -182,6 +182,6 @@ Plans:
 | 6. Claude Code Integration | v1.0 | 1/1 | Complete | 2026-04-13 |
 | 7. Operational Logging | v1.1 | 1/1 | Complete    | 2026-04-14 |
 | 8. Search UX Enhancements | v1.1 | 1/1 | Complete | 2026-04-14 |
-| 9. Preprocessor foundation | v1.2 | 0/3 | Planned (3 plans) | — |
+| 9. Preprocessor foundation | v1.2 | 1/3 | In Progress | — |
 | 10. OCR providers | v1.2 | 0/? | Planned | — |
 | 11. Vision enrichment & idempotency | v1.2 | 0/? | Planned | — |
