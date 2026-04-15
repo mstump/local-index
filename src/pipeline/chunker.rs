@@ -183,9 +183,10 @@ pub fn find_code_fences(text: &str) -> Vec<CodeFenceRegion> {
 
     let mut i = 0;
     while i < len {
+        let fence_len = 3.min(len.saturating_sub(i + 1));
         if bytes[i] == b'\n'
             && i + 3 <= len
-            && &bytes[i + 1..i + 1 + 3.min(len - i - 1)] == b"```"[..3.min(len - i - 1)].as_ref()
+            && bytes.get(i + 1..i + 1 + fence_len) == Some(&b"```"[..fence_len])
         {
             // Check for at least 3 backticks
             if i + 3 < len && bytes[i + 1] == b'`' && bytes[i + 2] == b'`' && bytes[i + 3] == b'`' {

@@ -18,6 +18,8 @@ pub enum LocalIndexError {
     Database(String),
     #[error("Rerank error: {0}")]
     Rerank(String),
+    #[error("Ignore walk error: {0}")]
+    Ignore(#[from] ignore::Error),
 }
 
 impl LocalIndexError {
