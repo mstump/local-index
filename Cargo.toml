@@ -88,6 +88,8 @@ dirs = "6.0"
 # Web search UX (term highlighting)
 regex = "1"
 html-escape = "0.2"
+ignore = "0.4"
+lopdf = "0.38"
 
 [dev-dependencies]
 tempfile = "3.0"
