@@ -3,13 +3,7 @@ use std::process::Command;
 
 /// Get the binary path. The binary must already be built (cargo test builds it).
 fn binary_path() -> std::path::PathBuf {
-    // When running `cargo test`, the binary is built as a dep automatically.
-    // We can find it via the CARGO_BIN_EXE mechanism or by constructing the path.
-    let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.push("target");
-    path.push("debug");
-    path.push("local-index");
-    path
+    std::path::PathBuf::from(env!("CARGO_BIN_EXE_local-index"))
 }
 
 fn run_index(

@@ -2,6 +2,11 @@
 
 use lopdf::Document;
 
+#[cfg(test)]
+use lopdf::content::{Content, Operation};
+#[cfg(test)]
+use lopdf::{dictionary, Object, Stream};
+
 use crate::error::LocalIndexError;
 
 /// Result of the text-density heuristic for a PDF (`PRE-05`).
@@ -79,78 +84,75 @@ pub fn extract_text_pdf_as_markdown(
     }
 }
 
+/// Single-page PDF with visible text `PHASE09_FIXTURE` (Courier), for tests and raster fixtures.
+#[cfg(test)]
+pub(crate) fn fixture_single_page_text_pdf() -> Vec<u8> {
+    let mut doc = Document::with_version("1.5");
+    let info_id = doc.add_object(dictionary! {
+        "Title" => Object::string_literal("phase09 test"),
+        "Creator" => Object::string_literal("local-index tests"),
+    });
+    let pages_id = doc.new_object_id();
+    let font_id = doc.add_object(dictionary! {
+        "Type" => "Font",
+        "Subtype" => "Type1",
+        "BaseFont" => "Courier",
+    });
+    let resources_id = doc.add_object(dictionary! {
+        "Font" => dictionary! {
+            "F1" => font_id,
+        },
+    });
+    let text = "PHASE09_FIXTURE";
+    let content = Content {
+        operations: vec![
+            Operation::new("BT", vec![]),
+            Operation::new("Tf", vec!["F1".into(), 48.into()]),
+            Operation::new("Td", vec![100.into(), 600.into()]),
+            Operation::new("Tj", vec![Object::string_literal(text)]),
+            Operation::new("ET", vec![]),
+        ],
+    };
+    let pages: Vec<Object> = [content]
+        .into_iter()
+        .map(|content| {
+            let content_id = doc.add_object(Stream::new(dictionary! {}, content.encode().unwrap()));
+            let page = doc.add_object(dictionary! {
+                "Type" => "Page",
+                "Parent" => pages_id,
+                "Contents" => content_id,
+            });
+            page.into()
+        })
+        .collect();
+
+    let pages_dict = dictionary! {
+        "Type" => "Pages",
+        "Kids" => pages,
+        "Count" => 1,
+        "Resources" => resources_id,
+        "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()],
+    };
+    doc.objects.insert(pages_id, Object::Dictionary(pages_dict));
+    let catalog_id = doc.add_object(dictionary! {
+        "Type" => "Catalog",
+        "Pages" => pages_id,
+    });
+    doc.trailer.set("Root", catalog_id);
+    doc.trailer.set("Info", info_id);
+    doc.compress();
+    let mut buf = Vec::new();
+    doc.save_to(&mut buf).expect("save pdf");
+    buf
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use lopdf::content::{Content, Operation};
-    use lopdf::{dictionary, Document as LoDocument, Object, Stream};
-
-    /// Single-page PDF with visible text `PHASE09_FIXTURE` (Courier), built like `lopdf` creator tests.
-    fn phase09_sample_pdf_bytes() -> Vec<u8> {
-        let mut doc = LoDocument::with_version("1.5");
-        let info_id = doc.add_object(dictionary! {
-            "Title" => Object::string_literal("phase09 test"),
-            "Creator" => Object::string_literal("local-index tests"),
-        });
-        let pages_id = doc.new_object_id();
-        let font_id = doc.add_object(dictionary! {
-            "Type" => "Font",
-            "Subtype" => "Type1",
-            "BaseFont" => "Courier",
-        });
-        let resources_id = doc.add_object(dictionary! {
-            "Font" => dictionary! {
-                "F1" => font_id,
-            },
-        });
-        let text = "PHASE09_FIXTURE";
-        let content = Content {
-            operations: vec![
-                Operation::new("BT", vec![]),
-                Operation::new("Tf", vec!["F1".into(), 48.into()]),
-                Operation::new("Td", vec![100.into(), 600.into()]),
-                Operation::new("Tj", vec![Object::string_literal(text)]),
-                Operation::new("ET", vec![]),
-            ],
-        };
-        let pages: Vec<Object> = [content]
-            .into_iter()
-            .map(|content| {
-                let content_id =
-                    doc.add_object(Stream::new(dictionary! {}, content.encode().unwrap()));
-                let page = doc.add_object(dictionary! {
-                    "Type" => "Page",
-                    "Parent" => pages_id,
-                    "Contents" => content_id,
-                });
-                page.into()
-            })
-            .collect();
-
-        let pages_dict = dictionary! {
-            "Type" => "Pages",
-            "Kids" => pages,
-            "Count" => 1,
-            "Resources" => resources_id,
-            "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()],
-        };
-        doc.objects.insert(pages_id, Object::Dictionary(pages_dict));
-        let catalog_id = doc.add_object(dictionary! {
-            "Type" => "Catalog",
-            "Pages" => pages_id,
-        });
-        doc.trailer.set("Root", catalog_id);
-        doc.trailer.set("Info", info_id);
-        doc.compress();
-        let mut buf = Vec::new();
-        doc.save_to(&mut buf).expect("save pdf");
-        buf
-    }
-
     #[test]
     fn classify_text_first_fixture_pdf() {
-        let bytes = phase09_sample_pdf_bytes();
+        let bytes = fixture_single_page_text_pdf();
         assert_eq!(
             classify_pdf(&bytes, bytes.len()).unwrap(),
             PdfClassification::TextFirst
@@ -159,7 +161,7 @@ mod tests {
 
     #[test]
     fn extract_markdown_contains_fixture_token() {
-        let bytes = phase09_sample_pdf_bytes();
+        let bytes = fixture_single_page_text_pdf();
         let md = extract_text_pdf_as_markdown(&bytes, bytes.len()).unwrap();
         assert!(
             md.contains("PHASE09_FIXTURE"),

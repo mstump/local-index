@@ -88,7 +88,8 @@ impl VoyageEmbedder {
             api_key,
             model: "voyage-3.5".to_string(),
             dim: 1024,
-            base_url: "https://api.voyageai.com".to_string(),
+            base_url: std::env::var("LOCAL_INDEX_VOYAGE_BASE_URL")
+                .unwrap_or_else(|_| "https://api.voyageai.com".to_string()),
             batch_size: DEFAULT_BATCH_SIZE,
         }
     }

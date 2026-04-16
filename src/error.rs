@@ -24,6 +24,8 @@ pub enum LocalIndexError {
     AssetTooLarge { bytes: usize, max_bytes: usize },
     #[error("PDF error: {0}")]
     Pdf(#[from] lopdf::Error),
+    #[error("Asset vision error: {0}")]
+    AssetVision(String),
 }
 
 impl LocalIndexError {

@@ -249,12 +249,15 @@ impl ChunkStore {
         Ok(())
     }
 
-    /// Delete chunks for every stored `file_path` that is not among the vault-relative paths
+    /// Delete chunks for every **markdown** `file_path` that is not among the vault-relative paths
     /// implied by `discovered_md_paths` (absolute paths under `vault_path`).
     ///
+    /// Non-`.md` paths (for example PDF/image asset provenance) are left unchanged so asset rows
+    /// are not removed by the markdown orphan pass.
+    ///
     /// Call after indexing so files removed from disk disappear from search even when
-    /// the daemon is not running. When `discovered_md_paths` is empty, every indexed file
-    /// is treated as absent and removed.
+    /// the daemon is not running. When `discovered_md_paths` is empty, every indexed **markdown**
+    /// file is treated as absent and removed.
     pub async fn prune_absent_markdown_files(
         &self,
         vault_path: &Path,
@@ -272,6 +275,13 @@ impl ChunkStore {
         let stored = self.get_all_file_paths().await?;
         let mut pruned_files = 0usize;
         for path in stored {
+            let is_markdown = path
+                .rsplit_once('.')
+                .is_some_and(|(_, ext)| ext.eq_ignore_ascii_case("md"));
+            if !is_markdown {
+                // Asset and other non-markdown provenance is not covered by the markdown walk.
+                continue;
+            }
             if !present.contains(&path) {
                 self.delete_chunks_for_file(&path).await?;
                 pruned_files += 1;
@@ -601,6 +611,45 @@ mod tests {
                 .is_empty()
         );
         assert_eq!(store.get_hashes_for_file("kept.md").await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn prune_absent_markdown_files_keeps_non_markdown_paths() {
+        let tmp = tempfile::tempdir().unwrap();
+        let vault = tmp.path().join("vault");
+        std::fs::create_dir_all(&vault).unwrap();
+        let db_path = tmp.path().join("db").to_str().unwrap().to_string();
+        let store = ChunkStore::open(&db_path).await.unwrap();
+
+        let chunks_md = vec![make_test_chunk("kept.md", "b", "# B")];
+        let chunks_asset = vec![make_test_chunk("photo.png", "c", "# C")];
+        let emb = vec![make_test_embedding()];
+        let h_md = chunks_md
+            .iter()
+            .map(|c| compute_content_hash(c))
+            .collect::<Vec<_>>();
+        let h_asset = chunks_asset
+            .iter()
+            .map(|c| compute_content_hash(c))
+            .collect::<Vec<_>>();
+        store
+            .store_chunks(&chunks_md, &emb, &h_md, "voyage-3.5")
+            .await
+            .unwrap();
+        store
+            .store_chunks(&chunks_asset, &emb, &h_asset, "voyage-3.5")
+            .await
+            .unwrap();
+
+        let kept_abs = vault.join("kept.md");
+        let n = store
+            .prune_absent_markdown_files(&vault, &[kept_abs])
+            .await
+            .unwrap();
+        assert_eq!(n, 0, "non-markdown paths must not be pruned as markdown orphans");
+
+        assert_eq!(store.get_hashes_for_file("kept.md").await.unwrap().len(), 1);
+        assert_eq!(store.get_hashes_for_file("photo.png").await.unwrap().len(), 1);
     }
 
     #[tokio::test]

@@ -33,6 +33,9 @@ pub enum Command {
     /// Walks the target directory recursively, discovers all .md files, chunks
     /// them by heading, embeds each chunk via the Anthropic API, and stores
     /// the results in LanceDB. Exits on completion.
+    ///
+    /// Asset processing (PDFs and images) uses `VOYAGE_API_KEY` for embeddings and
+    /// `ANTHROPIC_API_KEY` when a PDF needs vision or when indexing raster images.
     Index {
         /// Path to the directory tree to index (e.g., your Obsidian vault)
         #[arg(value_name = "PATH")]
@@ -41,6 +44,19 @@ pub enum Command {
         /// Force re-indexing even if content hashes match
         #[arg(long)]
         force_reindex: bool,
+
+        /// Skip PDF/image preprocessing (markdown-only indexing)
+        #[arg(long = "skip-asset-processing", env = "LOCAL_INDEX_SKIP_ASSET_PROCESSING", global = false)]
+        skip_asset_processing: bool,
+
+        /// Extra comma-separated globs to exclude (in addition to .gitignore)
+        #[arg(
+            long = "exclude-asset-glob",
+            env = "LOCAL_INDEX_EXCLUDE_ASSET_GLOBS",
+            value_delimiter = ',',
+            global = false
+        )]
+        exclude_asset_globs: Vec<String>,
     },
 
     /// Start a persistent daemon that watches for file changes
@@ -48,6 +64,9 @@ pub enum Command {
     /// Watches the target directory for create, modify, rename, and delete
     /// events. Re-indexes affected chunks automatically. Also starts the
     /// HTTP server for the web dashboard and metrics endpoint.
+    ///
+    /// Asset processing uses `VOYAGE_API_KEY` for embeddings and `ANTHROPIC_API_KEY`
+    /// when vision is required for scanned PDFs or images.
     Daemon {
         /// Path to the directory tree to watch (e.g., your Obsidian vault)
         #[arg(value_name = "PATH")]
@@ -56,6 +75,19 @@ pub enum Command {
         /// Address to bind the HTTP server to
         #[arg(long, env = "LOCAL_INDEX_BIND", default_value = "127.0.0.1:3000")]
         bind: String,
+
+        /// Skip PDF/image preprocessing (markdown-only indexing)
+        #[arg(long = "skip-asset-processing", env = "LOCAL_INDEX_SKIP_ASSET_PROCESSING", global = false)]
+        skip_asset_processing: bool,
+
+        /// Extra comma-separated globs to exclude (in addition to .gitignore)
+        #[arg(
+            long = "exclude-asset-glob",
+            env = "LOCAL_INDEX_EXCLUDE_ASSET_GLOBS",
+            value_delimiter = ',',
+            global = false
+        )]
+        exclude_asset_globs: Vec<String>,
     },
 
     /// Search the indexed vault

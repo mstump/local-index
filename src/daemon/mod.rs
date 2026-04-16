@@ -11,6 +11,7 @@ use tokio_util::task::TaskTracker;
 
 use crate::claude_rerank::AnthropicReranker;
 use crate::credentials::resolve_voyage_key;
+use crate::pipeline::assets::AnthropicAssetClient;
 use crate::pipeline::embedder::VoyageEmbedder;
 use crate::pipeline::store::ChunkStore;
 use crate::web::context::{AppState, DashboardConfig};
@@ -21,6 +22,8 @@ pub async fn run_daemon(
     vault_path: PathBuf,
     bind_addr: String,
     data_dir: String,
+    skip_asset_processing: bool,
+    exclude_asset_globs: Vec<String>,
 ) -> anyhow::Result<()> {
     // 1. Install metrics recorder FIRST (before any metrics macros are used)
     let prom_handle = metrics::setup_metrics()?;
@@ -29,6 +32,12 @@ pub async fn run_daemon(
     let store = Arc::new(ChunkStore::open(&data_dir).await?);
     let api_key = resolve_voyage_key()?;
     let embedder = Arc::new(VoyageEmbedder::new(api_key));
+    let data_dir_path = PathBuf::from(&data_dir);
+    let anthropic = if skip_asset_processing {
+        None
+    } else {
+        AnthropicAssetClient::new_from_env().ok().map(Arc::new)
+    };
 
     // 3. Set initial gauge values (count_total_chunks and count_distinct_files from Plan 02)
     if let Ok(total) = store.count_total_chunks().await {
@@ -71,9 +80,22 @@ pub async fn run_daemon(
     let proc_token = token.clone();
     let proc_store = Arc::clone(&store);
     let proc_embedder = Arc::clone(&embedder);
+    let proc_data_dir = data_dir_path.clone();
+    let proc_anthropic = anthropic.clone();
+    let proc_exclude = exclude_asset_globs.clone();
     tracker.spawn(async move {
-        processor::run_event_processor(event_rx, vault_path, proc_store, proc_embedder, proc_token)
-            .await;
+        processor::run_event_processor(
+            event_rx,
+            vault_path,
+            proc_data_dir,
+            proc_store,
+            proc_embedder,
+            proc_anthropic,
+            skip_asset_processing,
+            proc_exclude,
+            proc_token,
+        )
+        .await;
     });
 
     // 8. Spawn HTTP server with combined metrics + dashboard router

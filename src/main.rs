@@ -4,6 +4,7 @@ use anyhow::Result;
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
 use local_index::credentials::resolve_voyage_key;
+use local_index::pipeline::assets::{discover_asset_paths, ingest_asset_path, AnthropicAssetClient};
 use local_index::pipeline::chunker::chunk_markdown;
 use local_index::pipeline::embedder::{Embedder, VoyageEmbedder};
 use local_index::pipeline::store::{ChunkStore, compute_content_hash};
@@ -43,6 +44,8 @@ async fn main() -> Result<()> {
         cli::Command::Index {
             path,
             force_reindex,
+            skip_asset_processing,
+            exclude_asset_globs,
         } => {
             let vault_path = path
                 .canonicalize()
@@ -51,6 +54,7 @@ async fn main() -> Result<()> {
             tracing::info!(
                 path = %vault_path.display(),
                 force_reindex = force_reindex,
+                skip_asset_processing = skip_asset_processing,
                 "starting index of vault"
             );
 
@@ -297,6 +301,82 @@ async fn main() -> Result<()> {
                 }
             }
 
+            let max_asset_b = std::env::var("LOCAL_INDEX_MAX_ASSET_BYTES")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(50 * 1024 * 1024);
+            let max_pdf_pages = std::env::var("LOCAL_INDEX_MAX_PDF_PAGES")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(30);
+
+            let mut assets_indexed: usize = 0;
+            if *skip_asset_processing {
+                tracing::info!("asset processing skipped");
+            } else {
+                let anthropic = AnthropicAssetClient::new_from_env().ok();
+                let exts = ["pdf", "png", "jpg", "jpeg", "webp"];
+                let globs: Vec<String> = exclude_asset_globs.clone();
+                let asset_paths = discover_asset_paths(&vault_path, &exts, &globs)
+                    .map_err(|e| anyhow::anyhow!("{}", e))?;
+                tracing::info!(count = asset_paths.len(), "discovered asset files");
+                for rel in asset_paths {
+                    let rel_str = rel.to_string_lossy().to_string();
+                    let cf = ingest_asset_path(
+                        &vault_path,
+                        &rel,
+                        &data_dir,
+                        max_asset_b,
+                        max_pdf_pages,
+                        anthropic.as_ref(),
+                    )
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{}", e))?;
+
+                    if cf.chunks.is_empty() {
+                        continue;
+                    }
+
+                    let texts: Vec<String> = cf.chunks.iter().map(|c| c.body.clone()).collect();
+                    match embedder.embed(&texts).await {
+                        Ok(result) => {
+                            if let Err(e) = store.delete_chunks_for_file(&rel_str).await {
+                                tracing::warn!(file = %rel_str, error = %e, "failed to delete old asset chunks");
+                            }
+                            let hashes: Vec<String> =
+                                cf.chunks.iter().map(|c| compute_content_hash(c)).collect();
+                            match store
+                                .store_chunks(
+                                    &cf.chunks,
+                                    &result.embeddings,
+                                    &hashes,
+                                    embedder.model_id(),
+                                )
+                                .await
+                            {
+                                Ok(()) => {
+                                    chunks_embedded += cf.chunks.len();
+                                    assets_indexed += 1;
+                                    tracing::info!(
+                                        file = %rel_str,
+                                        chunks = cf.chunks.len(),
+                                        "embedded and stored asset"
+                                    );
+                                }
+                                Err(e) => {
+                                    tracing::warn!(file = %rel_str, error = %e, "failed to store asset chunks");
+                                    error_count += 1;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!(file = %rel_str, error = %e, "failed to embed asset");
+                            error_count += 1;
+                        }
+                    }
+                }
+            }
+
             let pruned_orphans = store
                 .prune_absent_markdown_files(&vault_path, &files)
                 .await?;
@@ -308,12 +388,13 @@ async fn main() -> Result<()> {
 
             if is_tty {
                 println!(
-                    "Indexed {} files | {} chunks embedded | {} skipped | {} errors | {} orphan files removed",
-                    file_count, chunks_embedded, chunks_skipped, error_count, pruned_orphans
+                    "Indexed {} files | {} assets | {} chunks embedded | {} skipped | {} errors | {} orphan files removed",
+                    file_count, assets_indexed, chunks_embedded, chunks_skipped, error_count, pruned_orphans
                 );
             } else {
                 let summary = serde_json::json!({
                     "files_indexed": file_count,
+                    "assets_indexed": assets_indexed,
                     "chunks_embedded": chunks_embedded,
                     "chunks_skipped": chunks_skipped,
                     "errors": error_count,
@@ -324,6 +405,7 @@ async fn main() -> Result<()> {
 
             tracing::info!(
                 files = file_count,
+                assets_indexed = assets_indexed,
                 chunks_embedded = chunks_embedded,
                 chunks_skipped = chunks_skipped,
                 errors = error_count,
@@ -332,7 +414,7 @@ async fn main() -> Result<()> {
             );
 
             // Create/refresh FTS index for search command
-            if chunks_embedded > 0 || pruned_orphans > 0 || cleared_empty_files {
+            if chunks_embedded > 0 || pruned_orphans > 0 || cleared_empty_files || assets_indexed > 0 {
                 tracing::info!("creating FTS index for search");
                 let engine = local_index::search::SearchEngine::new(&store, &embedder);
                 if let Err(e) = engine.ensure_fts_index().await {
@@ -342,7 +424,12 @@ async fn main() -> Result<()> {
                 }
             }
         }
-        cli::Command::Daemon { path, bind } => {
+        cli::Command::Daemon {
+            path,
+            bind,
+            skip_asset_processing,
+            exclude_asset_globs,
+        } => {
             let vault_path = path
                 .canonicalize()
                 .map_err(|e| anyhow::anyhow!("Invalid vault path '{}': {}", path.display(), e))?;
@@ -360,7 +447,14 @@ async fn main() -> Result<()> {
                 "starting daemon"
             );
 
-            local_index::daemon::run_daemon(vault_path, bind.clone(), db_path).await?;
+            local_index::daemon::run_daemon(
+                vault_path,
+                bind.clone(),
+                db_path,
+                *skip_asset_processing,
+                exclude_asset_globs.clone(),
+            )
+            .await?;
         }
         cli::Command::Search {
             query,

@@ -16,20 +16,20 @@ Where local-index diverges: it uses **Voyage AI** for embeddings instead of loca
 
 ```mermaid
 flowchart TD
-    FW["File Watcher\n(notify + debouncer)"]
+    FW["File Watcher (notify + debouncer)"]
 
     subgraph Pipeline["Indexing Pipeline"]
         direction LR
-        W["Walker\n(walkdir)"] --> C["Chunker\n(pulldown-cmark)"] --> E["Embedder\n(Voyage AI)"] --> CS[("ChunkStore\n(LanceDB)")]
+        W["Walker (walkdir)"] --> C["Chunker (pulldown-cmark)"] --> E["Embedder (Voyage AI)"] --> CS[("ChunkStore (LanceDB)")]
     end
 
     FW --> W
-    CS --> SE["SearchEngine\nsemantic · FTS · hybrid\n(RRF + opt. Claude rerank)"]
-    SE --> CLI["CLI\n(clap)"]
-    SE --> HTTP["HTTP Server\n(axum + askama)"]
+    CS --> SE["SearchEngine semantic · FTS · hybrid (RRF + opt. Claude rerank)"]
+    SE --> CLI["CLI (clap)"]
+    SE --> HTTP["HTTP Server (axum + askama)"]
     HTTP --> WD["Web Dashboard"]
-    HTTP --> PM["/metrics\n(Prometheus)"]
-    CCS["Claude Code Skills\n(.claude/skills/)"] -. invokes .-> CLI
+    HTTP --> PM["/metrics (Prometheus)"]
+    CCS["Claude Code Skills (.claude/skills/)"] -. invokes .-> CLI
 ```
 
 ### Pipeline
@@ -97,6 +97,16 @@ export OBSIDIAN_VAULT="/path/to/your/vault"
 local-index index "$OBSIDIAN_VAULT"
 local-index search "your query"
 ```
+
+## PDF and images (v1.2)
+
+When asset preprocessing is enabled (the default), `local-index index` and `local-index daemon` discover PDFs and common raster images under the vault, turn them into synthetic markdown, embed the chunks with Voyage, and store rows in LanceDB. Operator-facing details:
+
+- Optional extracted text for debugging and retries is written under **`asset-cache/`** inside the configured data directory (for example `<vault>/.local-index/asset-cache/` when you index in place, or `<LOCAL_INDEX_DATA_DIR>/asset-cache/` when you set a separate data directory via `--data-dir` / `LOCAL_INDEX_DATA_DIR`).
+- Search results and the index browser show **`file_path` as the original vault-relative PDF or image path**; raw PDFs are not indexed as if they were separate `.md` files.
+- Use **`--skip-asset-processing`** or **`LOCAL_INDEX_SKIP_ASSET_PROCESSING`** to keep runs markdown-only (no asset discovery, no vision calls).
+- **`ANTHROPIC_API_KEY`** is required when an asset needs vision (scanned PDFs and images). Text-first PDFs only need **`VOYAGE_API_KEY`**.
+- **`LOCAL_INDEX_MAX_PDF_PAGES`** caps how many PDF pages may be rasterized and sent through vision per file (default **30**).
 
 ## CLI Reference
 

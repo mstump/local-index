@@ -4,14 +4,14 @@ milestone: v1.2
 milestone_name: PDF & Image Preprocessor
 status: executing
 stopped_at: Requirements + roadmap authoring
-last_updated: "2026-04-15T15:35:59.455Z"
-last_activity: 2026-04-15 -- Phase 9 plan 09-01 complete; next 09-02
+last_updated: "2026-04-15T20:15:00.000Z"
+last_activity: 2026-04-15 -- Phase 9 complete (09-01–09-03); next Phase 10
 progress:
   total_phases: 11
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 1
-  percent: 33
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State
@@ -22,22 +22,22 @@ See: `.planning/PROJECT.md`
 
 **Core value:** Fast, accurate semantic search over a local markdown vault that Claude can query as a skill without any manual intervention.
 
-**Current focus:** Phase 9 — Preprocessor foundation
+**Current focus:** Phase 10 — OCR providers
 
 ## Current Position
 
-Phase: 9 (Preprocessor foundation) — EXECUTING
-Plan: 09-02 next (2 of 3)
-Status: Plan 09-01 complete
-Last activity: 2026-04-15 -- Phase 9 plan 09-01 complete; next 09-02
+Phase: 10 (OCR providers) — PLANNED
+Plan: TBD (Phase 9 delivered 09-01, 09-02, 09-03)
+Status: Phase 9 complete (Preprocessor foundation)
+Last activity: 2026-04-15 -- Phase 9 complete; begin Phase 10 when ready
 
-Progress: [██████░░░░░░░░░░░░░░] 33%
+Progress: [██████████░░░░░░░░░░] Phase 9 of v1.2 preprocessor track complete
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 1
+- Total plans completed: 3
 - Average duration: —
 - Total execution time: 0 hours
 
@@ -49,7 +49,7 @@ Progress: [██████░░░░░░░░░░░░░░] 33%
 
 **Recent Trend:**
 
-- Last 5 plans: 09-01 (Preprocessor foundation / assets module)
+- Last 5 plans: 09-01, 09-02, 09-03 (Preprocessor foundation)
 - Trend: —
 
 *Updated after each plan completion*

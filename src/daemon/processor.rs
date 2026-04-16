@@ -1,3 +1,4 @@
+use ignore::overrides::Override;
 use notify::EventKind;
 use notify::event::{ModifyKind, RenameMode};
 use notify_debouncer_full::DebouncedEvent;
@@ -8,10 +9,34 @@ use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use crate::daemon::metrics;
+use crate::pipeline::assets::{
+    build_asset_exclude_override, ingest_asset_path, is_asset_path_excluded_by_override,
+    AnthropicAssetClient,
+};
 use crate::pipeline::chunker::chunk_markdown;
 use crate::pipeline::embedder::Embedder;
 use crate::pipeline::store::{ChunkStore, compute_content_hash};
 use crate::search::SearchEngine;
+
+fn is_markdown(p: &Path) -> bool {
+    p.extension().map(|e| e == "md").unwrap_or(false)
+}
+
+fn is_asset(p: &Path) -> bool {
+    p.extension()
+        .and_then(|e| e.to_str())
+        .map(|e| {
+            matches!(
+                e.to_ascii_lowercase().as_str(),
+                "pdf" | "png" | "jpg" | "jpeg" | "webp"
+            )
+        })
+        .unwrap_or(false)
+}
+
+fn is_tracked(p: &Path) -> bool {
+    is_markdown(p) || is_asset(p)
+}
 
 /// Run the event processing loop. Receives batches of DebouncedEvents from the
 /// watcher channel, processes each event (create -> index, modify -> re-index,
@@ -22,11 +47,35 @@ use crate::search::SearchEngine;
 pub async fn run_event_processor<E: Embedder>(
     mut rx: mpsc::Receiver<Vec<DebouncedEvent>>,
     vault_path: PathBuf,
+    data_dir: PathBuf,
     store: Arc<ChunkStore>,
     embedder: Arc<E>,
+    anthropic: Option<Arc<AnthropicAssetClient>>,
+    skip_assets: bool,
+    exclude_globs: Vec<String>,
     token: CancellationToken,
 ) {
     tracing::info!("event processor started");
+
+    let vault_path = std::fs::canonicalize(&vault_path).unwrap_or(vault_path);
+    let exclude_override = build_asset_exclude_override(&vault_path, &exclude_globs).unwrap_or_else(
+        |e| {
+            tracing::error!(
+                error = %e,
+                "invalid exclude_asset_globs; operator asset excludes disabled"
+            );
+            Override::empty()
+        },
+    );
+
+    let max_asset_b = std::env::var("LOCAL_INDEX_MAX_ASSET_BYTES")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(50 * 1024 * 1024);
+    let max_pdf_pages = std::env::var("LOCAL_INDEX_MAX_PDF_PAGES")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(30);
 
     loop {
         tokio::select! {
@@ -40,47 +89,34 @@ pub async fn run_event_processor<E: Embedder>(
                 let mut needs_fts_rebuild = false;
 
                 for event in &events {
-                    // Only process .md files
-                    let md_paths: Vec<&Path> = event.paths.iter()
+                    let tracked_paths: Vec<&Path> = event.paths.iter()
                         .map(|p| p.as_path())
-                        .filter(|p| p.extension().map(|e| e == "md").unwrap_or(false))
+                        .filter(|p| is_tracked(p))
                         .collect();
 
-                    if md_paths.is_empty() {
+                    if tracked_paths.is_empty() {
                         continue;
                     }
 
-                    // T-04-05: Validate all paths are within vault_path
-                    // Skip any path that cannot be resolved relative to the vault
-                    let valid_paths: Vec<&Path> = md_paths.iter()
+                    let valid_paths: Vec<&Path> = tracked_paths.iter()
                         .copied()
                         .filter(|p| p.strip_prefix(&vault_path).is_ok())
                         .collect();
 
                     if valid_paths.is_empty() {
-                        tracing::warn!(paths = ?md_paths, "skipping event with paths outside vault");
+                        tracing::warn!(paths = ?tracked_paths, "skipping event with paths outside vault");
                         continue;
                     }
 
                     match &event.kind {
-                        // WTCH-02: Handle rename events explicitly BEFORE generic Modify.
-                        // notify-debouncer-full emits rename events as EventKind::Modify(ModifyKind::Name(_)).
-                        // event.paths layout for renames:
-                        //   RenameMode::Both => [old_path, new_path]
-                        //   RenameMode::From => [old_path] (only old path known)
-                        //   RenameMode::To   => [new_path] (only new path known)
                         EventKind::Modify(ModifyKind::Name(rename_mode)) => {
                             match rename_mode {
                                 RenameMode::Both => {
-                                    // event.paths[0] = old path, event.paths[1] = new path
                                     if event.paths.len() >= 2 {
                                         let old_path = &event.paths[0];
                                         let new_path = &event.paths[1];
 
-                                        // Remove chunks for old path (if it was .md and in vault)
-                                        if old_path.extension().map(|e| e == "md").unwrap_or(false)
-                                            && old_path.strip_prefix(&vault_path).is_ok()
-                                        {
+                                        if is_tracked(old_path) && old_path.strip_prefix(&vault_path).is_ok() {
                                             tracing::info!(
                                                 event = "Renamed",
                                                 path = %old_path.strip_prefix(&vault_path).unwrap_or(old_path).display(),
@@ -91,12 +127,20 @@ pub async fn run_event_processor<E: Embedder>(
                                                 remove_file(old_path, &vault_path, &store).await;
                                         }
 
-                                        // Index new path (if it is .md and in vault)
-                                        if new_path.extension().map(|e| e == "md").unwrap_or(false)
-                                            && new_path.strip_prefix(&vault_path).is_ok()
-                                        {
-                                            let (count, modified) =
-                                                reindex_file(new_path, &vault_path, &store, &embedder).await;
+                                        if is_tracked(new_path) && new_path.strip_prefix(&vault_path).is_ok() {
+                                            let (count, modified) = reindex_tracked_path(
+                                                new_path,
+                                                &vault_path,
+                                                &data_dir,
+                                                &store,
+                                                &embedder,
+                                                anthropic.as_ref(),
+                                                skip_assets,
+                                                &exclude_override,
+                                                max_asset_b,
+                                                max_pdf_pages,
+                                            )
+                                            .await;
                                             chunks_processed += count;
                                             needs_fts_rebuild |= modified;
                                         }
@@ -105,11 +149,8 @@ pub async fn run_event_processor<E: Embedder>(
                                     }
                                 }
                                 RenameMode::From => {
-                                    // Only old path available -- file was renamed away. Delete its chunks.
                                     if let Some(old_path) = event.paths.first() {
-                                        if old_path.extension().map(|e| e == "md").unwrap_or(false)
-                                            && old_path.strip_prefix(&vault_path).is_ok()
-                                        {
+                                        if is_tracked(old_path) && old_path.strip_prefix(&vault_path).is_ok() {
                                             tracing::info!(
                                                 event = "Renamed",
                                                 path = %old_path.strip_prefix(&vault_path).unwrap_or(old_path).display(),
@@ -122,18 +163,26 @@ pub async fn run_event_processor<E: Embedder>(
                                     }
                                 }
                                 RenameMode::To => {
-                                    // Only new path available -- file was renamed here. Index it.
                                     if let Some(new_path) = event.paths.first() {
-                                        if new_path.extension().map(|e| e == "md").unwrap_or(false)
-                                            && new_path.strip_prefix(&vault_path).is_ok()
-                                        {
+                                        if is_tracked(new_path) && new_path.strip_prefix(&vault_path).is_ok() {
                                             tracing::info!(
                                                 event = "Created",
                                                 path = %new_path.strip_prefix(&vault_path).unwrap_or(new_path).display(),
                                                 "file event"
                                             );
-                                            let (count, modified) =
-                                                reindex_file(new_path, &vault_path, &store, &embedder).await;
+                                            let (count, modified) = reindex_tracked_path(
+                                                new_path,
+                                                &vault_path,
+                                                &data_dir,
+                                                &store,
+                                                &embedder,
+                                                anthropic.as_ref(),
+                                                skip_assets,
+                                                &exclude_override,
+                                                max_asset_b,
+                                                max_pdf_pages,
+                                            )
+                                            .await;
                                             chunks_processed += count;
                                             needs_fts_rebuild |= modified;
                                             metrics::increment_file_events();
@@ -141,10 +190,20 @@ pub async fn run_event_processor<E: Embedder>(
                                     }
                                 }
                                 _ => {
-                                    // RenameMode::Any or other -- treat as generic modify on all paths
                                     for path in &valid_paths {
-                                        let (count, modified) =
-                                            reindex_file(path, &vault_path, &store, &embedder).await;
+                                        let (count, modified) = reindex_tracked_path(
+                                            path,
+                                            &vault_path,
+                                            &data_dir,
+                                            &store,
+                                            &embedder,
+                                            anthropic.as_ref(),
+                                            skip_assets,
+                                            &exclude_override,
+                                            max_asset_b,
+                                            max_pdf_pages,
+                                        )
+                                        .await;
                                         chunks_processed += count;
                                         needs_fts_rebuild |= modified;
                                         metrics::increment_file_events();
@@ -153,7 +212,6 @@ pub async fn run_event_processor<E: Embedder>(
                             }
                         }
 
-                        // WTCH-01, WTCH-03: Create and non-rename Modify events trigger re-indexing
                         EventKind::Create(_) | EventKind::Modify(_) => {
                             let event_label = match &event.kind {
                                 EventKind::Create(_) => "Created",
@@ -165,15 +223,25 @@ pub async fn run_event_processor<E: Embedder>(
                                     path = %path.strip_prefix(&vault_path).unwrap_or(path).display(),
                                     "file event"
                                 );
-                                let (count, modified) =
-                                    reindex_file(path, &vault_path, &store, &embedder).await;
+                                let (count, modified) = reindex_tracked_path(
+                                    path,
+                                    &vault_path,
+                                    &data_dir,
+                                    &store,
+                                    &embedder,
+                                    anthropic.as_ref(),
+                                    skip_assets,
+                                    &exclude_override,
+                                    max_asset_b,
+                                    max_pdf_pages,
+                                )
+                                .await;
                                 chunks_processed += count;
                                 needs_fts_rebuild |= modified;
                                 metrics::increment_file_events();
                             }
                         }
 
-                        // WTCH-04: Remove events delete all chunks for the file
                         EventKind::Remove(_) => {
                             for path in &valid_paths {
                                 tracing::info!(
@@ -191,7 +259,6 @@ pub async fn run_event_processor<E: Embedder>(
                     }
                 }
 
-                // Update gauges after batch (uses count_total_chunks and count_distinct_files from Plan 02)
                 if let Ok(total) = store.count_total_chunks().await {
                     metrics::set_chunks_total(total as f64);
                 }
@@ -199,8 +266,6 @@ pub async fn run_event_processor<E: Embedder>(
                     metrics::set_files_total(files as f64);
                 }
 
-                // Record throughput and rebuild FTS after any table mutation (including
-                // deletes with zero new embeddings, which previously skipped FTS rebuild).
                 if chunks_processed > 0 || needs_fts_rebuild {
                     let elapsed = batch_start.elapsed();
                     if chunks_processed > 0 {
@@ -218,43 +283,79 @@ pub async fn run_event_processor<E: Embedder>(
     }
 }
 
-/// Re-index a single file: read, chunk, embed, store.
-///
-/// Returns `(chunks_indexed, store_modified)` so callers can refresh FTS when rows were
-/// removed or rewritten even if no new embeddings were produced.
-async fn reindex_file<E: Embedder>(
+async fn reindex_tracked_path<E: Embedder>(
     path: &Path,
     vault_path: &Path,
+    data_dir: &Path,
     store: &ChunkStore,
     embedder: &E,
+    anthropic: Option<&Arc<AnthropicAssetClient>>,
+    skip_assets: bool,
+    exclude_override: &Override,
+    max_asset_b: usize,
+    max_pdf_pages: usize,
 ) -> (u64, bool) {
+    if is_markdown(path) {
+        return reindex_file(path, vault_path, store, embedder).await;
+    }
+    if is_asset(path) {
+        if skip_assets {
+            tracing::info!(path = %path.display(), "asset processing skipped");
+            return (0, false);
+        }
+        return reindex_asset(
+            path,
+            vault_path,
+            data_dir,
+            store,
+            embedder,
+            anthropic.map(|a| a.as_ref()),
+            exclude_override,
+            max_asset_b,
+            max_pdf_pages,
+        )
+        .await;
+    }
+    (0, false)
+}
+
+async fn reindex_asset<E: Embedder>(
+    path: &Path,
+    vault_path: &Path,
+    data_dir: &Path,
+    store: &ChunkStore,
+    embedder: &E,
+    anthropic: Option<&AnthropicAssetClient>,
+    exclude_override: &Override,
+    max_asset_b: usize,
+    max_pdf_pages: usize,
+) -> (u64, bool) {
+    if is_asset_path_excluded_by_override(vault_path, path, exclude_override) {
+        tracing::info!(path = %path.display(), "asset excluded by operator glob");
+        return (0, false);
+    }
     let relative = path.strip_prefix(vault_path).unwrap_or(path);
     let relative_str = relative.to_string_lossy().to_string();
 
-    tracing::info!(file = %relative_str, "re-indexing file");
-
-    // Read file (async to avoid blocking the executor thread)
-    let content = match tokio::fs::read_to_string(path).await {
+    let cf = match ingest_asset_path(
+        vault_path,
+        relative,
+        data_dir,
+        max_asset_b,
+        max_pdf_pages,
+        anthropic,
+    )
+    .await
+    {
         Ok(c) => c,
         Err(e) => {
-            tracing::warn!(file = %relative_str, error = %e, "failed to read file");
+            tracing::warn!(file = %relative_str, error = %e, "failed to ingest asset");
             metrics::increment_embedding_errors();
             return (0, false);
         }
     };
 
-    // Chunk
-    let chunked = match chunk_markdown(&content, relative) {
-        Ok(cf) => cf,
-        Err(e) => {
-            tracing::warn!(file = %relative_str, error = %e, "failed to chunk file");
-            metrics::increment_embedding_errors();
-            return (0, false);
-        }
-    };
-
-    if chunked.chunks.is_empty() {
-        // Delete any existing chunks for this file (file may have been emptied)
+    if cf.chunks.is_empty() {
         let cleared = store.delete_chunks_for_file(&relative_str).await.is_ok();
         tracing::info!(
             path = %relative_str,
@@ -266,7 +367,94 @@ async fn reindex_file<E: Embedder>(
         return (0, cleared);
     }
 
-    // Embed
+    let texts: Vec<String> = cf.chunks.iter().map(|c| c.body.clone()).collect();
+    let embed_start = Instant::now();
+    let result = match embedder.embed(&texts).await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(file = %relative_str, error = %e, "failed to embed asset");
+            metrics::increment_embedding_errors();
+            return (0, false);
+        }
+    };
+    metrics::record_embedding_latency(embed_start.elapsed());
+
+    let hashes: Vec<String> = cf.chunks.iter().map(|c| compute_content_hash(c)).collect();
+    let del_ok = store.delete_chunks_for_file(&relative_str).await.is_ok();
+    if !del_ok {
+        tracing::warn!(file = %relative_str, "failed to delete old asset chunks before storing new rows");
+    }
+
+    let chunk_count = cf.chunks.len() as u64;
+    match store
+        .store_chunks(
+            &cf.chunks,
+            &result.embeddings,
+            &hashes,
+            embedder.model_id(),
+        )
+        .await
+    {
+        Ok(()) => {
+            metrics::increment_chunks_indexed(chunk_count);
+            tracing::info!(
+                path = %relative_str,
+                chunks_added = chunk_count,
+                chunks_removed = 0u64,
+                chunks_skipped = 0u64,
+                "indexing outcome"
+            );
+            (chunk_count, true)
+        }
+        Err(e) => {
+            tracing::warn!(file = %relative_str, error = %e, "failed to store asset chunks");
+            metrics::increment_embedding_errors();
+            (0, del_ok)
+        }
+    }
+}
+
+async fn reindex_file<E: Embedder>(
+    path: &Path,
+    vault_path: &Path,
+    store: &ChunkStore,
+    embedder: &E,
+) -> (u64, bool) {
+    let relative = path.strip_prefix(vault_path).unwrap_or(path);
+    let relative_str = relative.to_string_lossy().to_string();
+
+    tracing::info!(file = %relative_str, "re-indexing file");
+
+    let content = match tokio::fs::read_to_string(path).await {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!(file = %relative_str, error = %e, "failed to read file");
+            metrics::increment_embedding_errors();
+            return (0, false);
+        }
+    };
+
+    let chunked = match chunk_markdown(&content, relative) {
+        Ok(cf) => cf,
+        Err(e) => {
+            tracing::warn!(file = %relative_str, error = %e, "failed to chunk file");
+            metrics::increment_embedding_errors();
+            return (0, false);
+        }
+    };
+
+    if chunked.chunks.is_empty() {
+        let cleared = store.delete_chunks_for_file(&relative_str).await.is_ok();
+        tracing::info!(
+            path = %relative_str,
+            chunks_added = 0u64,
+            chunks_removed = 0u64,
+            chunks_skipped = 1u64,
+            "indexing outcome"
+        );
+        return (0, cleared);
+    }
+
     let texts: Vec<String> = chunked.chunks.iter().map(|c| c.body.clone()).collect();
     let embed_start = Instant::now();
     let result = match embedder.embed(&texts).await {
@@ -279,14 +467,12 @@ async fn reindex_file<E: Embedder>(
     };
     metrics::record_embedding_latency(embed_start.elapsed());
 
-    // Compute hashes
     let hashes: Vec<String> = chunked
         .chunks
         .iter()
         .map(|c| compute_content_hash(c))
         .collect();
 
-    // Delete old + store new
     let del_ok = store.delete_chunks_for_file(&relative_str).await.is_ok();
     if !del_ok {
         tracing::warn!(file = %relative_str, "failed to delete old chunks before storing new rows");
@@ -321,7 +507,6 @@ async fn reindex_file<E: Embedder>(
     }
 }
 
-/// Remove all chunks for a deleted file. Returns whether the store reported a successful delete.
 async fn remove_file(path: &Path, vault_path: &Path, store: &ChunkStore) -> bool {
     let relative = path.strip_prefix(vault_path).unwrap_or(path);
     let relative_str = relative.to_string_lossy().to_string();
@@ -340,14 +525,8 @@ async fn remove_file(path: &Path, vault_path: &Path, store: &ChunkStore) -> bool
             true
         }
         Err(e) => {
-            // Log only -- this is a store/database error, not an embedding error.
-            // Incrementing embedding_errors_total here would mislead operators into
-            // investigating the embedding pipeline when the real issue is the database.
             tracing::warn!(file = %relative_str, error = %e, "failed to remove chunks for deleted file");
             false
         }
     }
-    // NOTE: do NOT call metrics::increment_file_events() here.
-    // All callers of remove_file are responsible for incrementing the counter,
-    // consistent with how reindex_file is structured.
 }
