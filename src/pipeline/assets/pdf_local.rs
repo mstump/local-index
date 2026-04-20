@@ -232,4 +232,49 @@ mod tests {
             "unexpected message: {msg}"
         );
     }
+
+    #[test]
+    fn extract_page_text_vec_returns_one_entry_per_page_with_fixture() {
+        let bytes = fixture_single_page_text_pdf();
+        let pages = extract_page_text_vec(&bytes, bytes.len(), 30).unwrap();
+        assert_eq!(pages.len(), 1, "expected one page");
+        assert!(
+            pages[0].contains("PHASE09_FIXTURE"),
+            "page 0 missing fixture token: {:?}",
+            pages[0]
+        );
+    }
+
+    #[test]
+    fn extract_page_text_vec_returns_empty_string_for_empty_page() {
+        let bytes = fixture_needs_vision_single_page_pdf();
+        let pages = extract_page_text_vec(&bytes, bytes.len(), 30).unwrap();
+        assert_eq!(pages.len(), 1);
+        assert!(pages[0].is_empty(), "expected empty string for empty page");
+    }
+
+    #[test]
+    fn extract_page_text_vec_respects_max_pages_cap() {
+        let bytes = fixture_single_page_text_pdf();
+        let pages = extract_page_text_vec(&bytes, bytes.len(), 0).unwrap();
+        assert!(pages.is_empty());
+    }
+
+    #[test]
+    fn extract_page_text_vec_respects_max_bytes_cap() {
+        let bytes = fixture_single_page_text_pdf();
+        let err = extract_page_text_vec(&bytes, 8, 30).unwrap_err();
+        assert!(err.to_string().contains("asset too large"));
+    }
+
+    #[test]
+    fn fixture_single_page_pdf_with_embedded_image_classifies_textfirst() {
+        let bytes = fixture_single_page_pdf_with_embedded_image();
+        assert_eq!(
+            classify_pdf(&bytes, bytes.len()).unwrap(),
+            PdfClassification::TextFirst,
+            "new embedded-image fixture must classify as TextFirst so the TextFirst \
+             branch of ingest_asset_path exercises embedded-image extraction"
+        );
+    }
 }
