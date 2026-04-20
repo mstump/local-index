@@ -31,6 +31,33 @@ pub fn ensure_cache_parent(path: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Read a cache file if present and non-empty. Returns `None` on miss,
+/// empty/whitespace content, or non-`NotFound` IO errors; logs a WARN for
+/// every non-miss failure path so operators see corruption (D-03).
+pub async fn read_cache_if_present(path: &std::path::Path) -> Option<String> {
+    match tokio::fs::read_to_string(path).await {
+        Ok(s) if !s.trim().is_empty() => Some(s),
+        Ok(_) => {
+            tracing::warn!(
+                corrupt_cache = true,
+                path = %path.display(),
+                "asset cache file exists but is empty; refetching from API"
+            );
+            None
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(e) => {
+            tracing::warn!(
+                corrupt_cache = true,
+                path = %path.display(),
+                error = %e,
+                "asset cache read failed; refetching from API"
+            );
+            None
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
