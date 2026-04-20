@@ -8,18 +8,19 @@ A Rust daemon that watches a directory tree (initially an Obsidian vault), chunk
 
 Fast, accurate semantic search over a local markdown vault that Claude can query as a skill without any manual intervention.
 
-## Current Milestone: v1.2 — PDF & Image Preprocessor (SEED-001)
+## Previous milestone: v1.2 — PDF & Image Preprocessor (complete 2026-04-20)
 
-**Goal:** Make PDFs and images in an Obsidian vault searchable by producing enriched `.processed.md` companion files that the existing indexer ingests unchanged.
+**Shipped in v1.2:**
+- PDF classification (TextFirst vs NeedsVision) + local text extraction via lopdf — Phase 9
+- Anthropic OCR for scanned PDFs (NeedsVision path); optional Google Document AI OCR — Phase 9
+- Standalone image vision via Anthropic (PNG/JPG/WEBP) — Phase 9
+- Ephemeral SHA-256 asset cache (`asset-cache/{shard}/{sha256}.txt`) for idempotent re-indexing (PRE-04) — Phase 11
+- Canonical blockquote image format `> **[Image: {filename}]** {desc}` for all vision output (PRE-11/PRE-12) — Phase 11
+- TextFirst PDF per-page text + embedded-image vision interleaving via pdfium-render (PRE-09/PRE-10) — Phase 11
+- Graceful degradation: missing pdfium or ANTHROPIC_API_KEY → text-only with WARN — Phase 11
+- README documentation of ephemeral-cache approach, double-index prevention, cache invalidation (PRE-13) — Phase 11
 
-**Target features:**
-- Companion daemon or subcommand (Rust, same repo) watching the vault for PDFs and raster images
-- PDF classification and extraction pipeline (local text path + OCR path per SEED-001)
-- Anthropic Messages API for vision/OCR; optional Google Document AI for OCR when configured
-- Deterministic companion file naming, YAML frontmatter with source content hash, skip when unchanged
-- Documented integration with `local-index index` / `daemon` so companions are indexed without double-counting originals
-
-**Selected seed:** [SEED-001](.planning/seeds/SEED-001-pdf-image-processor-daemon.md) (full architecture and phase split preserved there).
+**Selected seed:** [SEED-001](.planning/seeds/SEED-001-pdf-image-processor-daemon.md)
 
 ---
 
