@@ -138,6 +138,232 @@ mod tests {
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
+    // Minimal 1×1 PNG for cache-hit and standalone-image tests (transparent).
+    const PNG_1X1: &[u8] = &[
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
+        0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f,
+        0x15, 0xc4, 0x89, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x00,
+        0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49,
+        0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+    ];
+
+    fn sha256_hex(bytes: &[u8]) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(bytes);
+        hasher
+            .finalize()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect()
+    }
+
+    #[test]
+    fn blockquote_single_line() {
+        assert_eq!(
+            blockquote_image("figure.png", "A chart"),
+            "> **[Image: figure.png]** A chart"
+        );
+    }
+
+    #[test]
+    fn blockquote_multiline_prefixes_every_line() {
+        assert_eq!(
+            blockquote_image("figure.png", "line one\nline two\nline three"),
+            "> **[Image: figure.png]** line one\n> line two\n> line three"
+        );
+    }
+
+    #[test]
+    fn blockquote_empty_description_still_emits_prefix() {
+        assert_eq!(
+            blockquote_image("pic.jpg", ""),
+            "> **[Image: pic.jpg]** "
+        );
+    }
+
+    #[tokio::test]
+    async fn standalone_image_uses_blockquote_format() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/messages"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "content": [{"type": "text", "text": "IMAGE_DESC"}],
+                "id": "msg_1",
+                "model": "claude",
+                "role": "assistant",
+                "stop_reason": "end_turn",
+                "type": "message",
+                "usage": {"input_tokens": 1, "output_tokens": 1}
+            })))
+            .mount(&server)
+            .await;
+
+        let vault = tempdir().unwrap();
+        let img_path = vault.path().join("pic.png");
+        tokio::fs::write(&img_path, PNG_1X1).await.unwrap();
+        let data_dir = vault.path().join(".local-index");
+        tokio::fs::create_dir_all(&data_dir).await.unwrap();
+
+        let client = AnthropicAssetClient::new_for_test("test-key", server.uri());
+        let cf = ingest_asset_path(
+            vault.path(),
+            Path::new("pic.png"),
+            &data_dir,
+            PNG_1X1.len() * 2,
+            30,
+            None,
+            Some(&client),
+        )
+        .await
+        .expect("ingest standalone image");
+
+        assert!(
+            cf.chunks
+                .iter()
+                .any(|c| c.body.contains("> **[Image: pic.png]** IMAGE_DESC")),
+            "chunk body should contain blockquote-wrapped vision desc: {:?}",
+            cf.chunks.first().map(|c| &c.body)
+        );
+    }
+
+    #[tokio::test]
+    async fn needsvision_pdf_pages_use_blockquote_format() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/messages"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "content": [{"type": "text", "text": "OCR_PAGE_BODY"}],
+                "id": "msg_1",
+                "model": "claude",
+                "role": "assistant",
+                "stop_reason": "end_turn",
+                "type": "message",
+                "usage": {"input_tokens": 1, "output_tokens": 1}
+            })))
+            .mount(&server)
+            .await;
+
+        let vault = tempdir().unwrap();
+        let pdf_path = vault.path().join("scan.pdf");
+        let pdf_bytes = crate::pipeline::assets::pdf_local::fixture_needs_vision_single_page_pdf();
+        tokio::fs::write(&pdf_path, &pdf_bytes).await.unwrap();
+        let data_dir = vault.path().join(".local-index");
+        tokio::fs::create_dir_all(&data_dir).await.unwrap();
+
+        let client = AnthropicAssetClient::new_for_test("test-key", server.uri());
+        let pdf_ocr = Some(OcrService::Anthropic(client.clone()));
+        let cf = ingest_asset_path(
+            vault.path(),
+            Path::new("scan.pdf"),
+            &data_dir,
+            pdf_bytes.len() * 2,
+            30,
+            pdf_ocr.as_ref(),
+            Some(&client),
+        )
+        .await
+        .expect("ingest needs-vision pdf");
+
+        assert!(
+            cf.chunks
+                .iter()
+                .any(|c| c.body.contains("> **[Image: scan_page_1.png]** OCR_PAGE_BODY")),
+            "chunk body should contain blockquote-wrapped OCR page: {:?}",
+            cf.chunks.first().map(|c| &c.body)
+        );
+    }
+
+    #[tokio::test]
+    async fn cache_hit_skips_api_and_returns_cached_synthetic() {
+        let vault = tempdir().unwrap();
+        let img_path = vault.path().join("pic.png");
+        let bytes: &[u8] = b"PHASE11";
+        tokio::fs::write(&img_path, bytes).await.unwrap();
+        let data_dir = vault.path().join(".local-index");
+        tokio::fs::create_dir_all(&data_dir).await.unwrap();
+
+        // Pre-seed cache file for the source bytes' SHA-256 hash.
+        let hex = sha256_hex(bytes);
+        let cache_path = cache_path_for_hash(&data_dir, &hex);
+        ensure_cache_parent(&cache_path).unwrap();
+        tokio::fs::write(&cache_path, b"# cached\n\nCACHED_BODY\n")
+            .await
+            .unwrap();
+
+        // image_vision: None would normally error for a .png; cache hit must short-circuit.
+        let cf = ingest_asset_path(
+            vault.path(),
+            Path::new("pic.png"),
+            &data_dir,
+            bytes.len() * 2,
+            30,
+            None,
+            None,
+        )
+        .await
+        .expect("cache hit must short-circuit image_vision=None");
+
+        assert!(
+            cf.chunks.iter().any(|c| c.body.contains("CACHED_BODY")),
+            "chunk body should contain cached synthetic: {:?}",
+            cf.chunks.first().map(|c| &c.body)
+        );
+    }
+
+    #[tokio::test]
+    async fn corrupt_cache_triggers_refetch() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/messages"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "content": [{"type": "text", "text": "FRESH_DESC"}],
+                "id": "msg_1",
+                "model": "claude",
+                "role": "assistant",
+                "stop_reason": "end_turn",
+                "type": "message",
+                "usage": {"input_tokens": 1, "output_tokens": 1}
+            })))
+            .mount(&server)
+            .await;
+
+        let vault = tempdir().unwrap();
+        let img_path = vault.path().join("pic.png");
+        tokio::fs::write(&img_path, PNG_1X1).await.unwrap();
+        let data_dir = vault.path().join(".local-index");
+        tokio::fs::create_dir_all(&data_dir).await.unwrap();
+
+        // Pre-seed an EMPTY cache file — must be treated as corrupt and refetched.
+        let hex = sha256_hex(PNG_1X1);
+        let cache_path = cache_path_for_hash(&data_dir, &hex);
+        ensure_cache_parent(&cache_path).unwrap();
+        tokio::fs::write(&cache_path, b"").await.unwrap();
+
+        let client = AnthropicAssetClient::new_for_test("test-key", server.uri());
+        let cf = ingest_asset_path(
+            vault.path(),
+            Path::new("pic.png"),
+            &data_dir,
+            PNG_1X1.len() * 2,
+            30,
+            None,
+            Some(&client),
+        )
+        .await
+        .expect("corrupt cache should refetch and succeed");
+
+        assert!(
+            cf.chunks.iter().any(|c| c.body.contains("FRESH_DESC")),
+            "fresh desc must appear after corrupt-cache refetch: {:?}",
+            cf.chunks.first().map(|c| &c.body)
+        );
+        let reqs = server.received_requests().await.unwrap();
+        assert!(
+            !reqs.is_empty(),
+            "corrupt cache should have triggered at least one API request"
+        );
+    }
+
     #[tokio::test]
     async fn text_first_pdf_chunks_use_asset_path() {
         let vault = tempdir().unwrap();
