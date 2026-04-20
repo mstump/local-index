@@ -48,7 +48,7 @@
 
 Plans:
 - [x] 11-01-PLAN.md — Cache idempotency + blockquote helper + standalone/NeedsVision wrapping
-- [ ] 11-02-PLAN.md — TextFirst PDF embedded-image extraction + per-page interleaving
+- [x] 11-02-PLAN.md — TextFirst PDF embedded-image extraction + per-page interleaving
 - [ ] 11-03-PLAN.md — README ephemeral-cache and double-index documentation (PRE-13)
 
 Plans:
@@ -174,7 +174,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 11-01-PLAN.md — Cache idempotency + blockquote helper + standalone/NeedsVision wrapping
+- [x] 11-01-PLAN.md — Cache idempotency + blockquote helper + standalone/NeedsVision wrapping
 - [ ] 11-02-PLAN.md — TextFirst PDF embedded-image extraction + per-page interleaving
 - [ ] 11-03-PLAN.md — README ephemeral-cache and double-index documentation (PRE-13)
 
@@ -194,4 +194,4 @@ Plans:
 | 8. Search UX Enhancements | v1.1 | 1/1 | Complete | 2026-04-14 |
 | 9. Preprocessor foundation | v1.2 | 3/3 | Complete | 2026-04-15 |
 | 10. OCR providers | v1.2 | 2/2 | Complete    | 2026-04-20 |
-| 11. Vision enrichment & idempotency | v1.2 | 1/3 | In Progress|  |
+| 11. Vision enrichment & idempotency | v1.2 | 2/3 | In Progress|  |
