@@ -57,6 +57,14 @@ pub fn classify_pdf(bytes: &[u8], max_bytes: usize) -> Result<PdfClassification,
 }
 
 /// Extract page text locally and wrap as light markdown suitable for [`crate::pipeline::chunker::chunk_markdown`] (`PRE-06`).
+///
+/// **Note on visibility:** preserved as `pub` per Plan 09-01/11-02 contract
+/// even though no caller in the crate currently uses it — Phase 11-02
+/// replaced the former call site in `ingest.rs` with a per-page loop
+/// (`extract_page_text_vec` + `extract_embedded_images_per_page`). Downstream
+/// consumers (future phases, CLI probes) may still need this flat-markdown
+/// form, so the export is kept alive with `#[allow(dead_code)]`.
+#[allow(dead_code)]
 pub fn extract_text_pdf_as_markdown(
     bytes: &[u8],
     max_bytes: usize,

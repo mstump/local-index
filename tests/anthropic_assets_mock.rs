@@ -56,6 +56,15 @@ async fn describe_image_posts_messages_contract() {
     );
 }
 
+/// Returns true when the pdfium system library can be bound — required for
+/// TextFirst embedded-image extraction. Integration tests on machines with
+/// only Poppler (`pdftoppm`) available must honour the graceful-degradation
+/// contract documented in `src/pipeline/assets/pdf_images.rs`.
+fn pdfium_available() -> bool {
+    use pdfium_render::prelude::Pdfium;
+    Pdfium::bind_to_system_library().is_ok()
+}
+
 #[tokio::test]
 async fn textfirst_pdf_calls_vision_per_embedded_image() {
     use local_index::pipeline::assets::ingest_asset_path;
@@ -99,21 +108,39 @@ async fn textfirst_pdf_calls_vision_per_embedded_image() {
     .expect("ingest textfirst pdf with embedded image");
 
     let reqs = server.received_requests().await.unwrap();
-    assert_eq!(
-        reqs.len(),
-        1,
-        "expected exactly one vision call (one embedded image); got {}",
-        reqs.len()
-    );
-
     let joined: String = cf
         .chunks
         .iter()
         .map(|c| c.body.as_str())
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(
-        joined.contains("> **[Image: doc_page_1_image_1.png]** EMBEDDED_IMG_DESC"),
-        "expected embedded image blockquote; got: {joined}"
-    );
+
+    if pdfium_available() {
+        // Primary contract: one embedded image → one vision call → one
+        // blockquote carrying the describe_image response.
+        assert_eq!(
+            reqs.len(),
+            1,
+            "expected exactly one vision call (one embedded image); got {}",
+            reqs.len()
+        );
+        assert!(
+            joined.contains("> **[Image: doc_page_1_image_1.png]** EMBEDDED_IMG_DESC"),
+            "expected embedded image blockquote; got: {joined}"
+        );
+    } else {
+        // Graceful degradation contract: when libpdfium is not available,
+        // embedded-image extraction is a no-op and no vision calls happen.
+        // Text still indexes (verified elsewhere in unit tests).
+        assert_eq!(
+            reqs.len(),
+            0,
+            "no vision call expected when pdfium is unavailable; got {}",
+            reqs.len()
+        );
+        assert!(
+            !joined.contains("> **[Image: doc_page_1_image_1.png]**"),
+            "no blockquote expected when pdfium is unavailable; got: {joined}"
+        );
+    }
 }

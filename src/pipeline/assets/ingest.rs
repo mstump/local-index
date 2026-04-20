@@ -7,7 +7,8 @@ use sha2::{Digest, Sha256};
 use super::anthropic_extract::AnthropicAssetClient;
 use super::cache::{cache_path_for_hash, ensure_cache_parent, read_cache_if_present};
 use super::ocr::OcrService;
-use super::pdf_local::{classify_pdf, extract_text_pdf_as_markdown, PdfClassification};
+use super::pdf_images::extract_embedded_images_per_page;
+use super::pdf_local::{classify_pdf, extract_page_text_vec, PdfClassification};
 use super::pdf_raster::rasterize_pdf_pages_to_png;
 use crate::error::LocalIndexError;
 use crate::pipeline::chunker::chunk_markdown;
@@ -109,8 +110,76 @@ pub async fn ingest_asset_path(
     let synthetic = if ext == "pdf" {
         match classify_pdf(&bytes, max_bytes)? {
             PdfClassification::TextFirst => {
-                // UNCHANGED in Plan 11-01 — Plan 11-02 expands this branch with embedded-image vision.
-                let body = extract_text_pdf_as_markdown(&bytes, max_bytes)?;
+                // Phase 11-02: per-page text (lopdf) aligned with per-page
+                // embedded images (pdfium). Each page becomes
+                //   ## Page N
+                //   {page text}
+                //   > **[Image: {stem}_page_N_image_I.png]** {vision desc}
+                //   ...
+                // and pages are joined with `\n\n---\n\n`.
+                let per_page_text = extract_page_text_vec(&bytes, max_bytes, max_pdf_pages)?;
+                let per_page_images =
+                    extract_embedded_images_per_page(&bytes, max_pdf_pages)?;
+
+                // Graceful degradation per research Open Question #3:
+                // if any page has >=1 embedded image but no vision client is
+                // configured, log a WARN once and proceed with text-only
+                // output for that PDF.
+                let any_embedded_images =
+                    per_page_images.iter().any(|page_imgs| !page_imgs.is_empty());
+                if any_embedded_images && image_vision.is_none() {
+                    tracing::warn!(
+                        asset = %fname,
+                        "TextFirst PDF has embedded images but ANTHROPIC_API_KEY \
+                         is not configured; indexing page text only"
+                    );
+                }
+
+                let stem = Path::new(fname)
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("doc");
+
+                let page_count = per_page_text.len().max(per_page_images.len());
+                let mut page_blocks: Vec<String> = Vec::with_capacity(page_count);
+                for page_idx in 0..page_count {
+                    let mut page = format!("## Page {}\n\n", page_idx + 1);
+                    if let Some(text) = per_page_text.get(page_idx) {
+                        if !text.is_empty() {
+                            page.push_str(text);
+                            page.push_str("\n\n");
+                        }
+                    }
+                    if let (Some(images), Some(client)) =
+                        (per_page_images.get(page_idx), image_vision)
+                    {
+                        for (img_idx, png) in images.iter().enumerate() {
+                            let synthetic_name = format!(
+                                "{stem}_page_{}_image_{}.png",
+                                page_idx + 1,
+                                img_idx + 1,
+                            );
+                            match client.describe_image("image/png", png).await {
+                                Ok(desc) => {
+                                    page.push_str(&blockquote_image(&synthetic_name, &desc));
+                                    page.push_str("\n\n");
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        asset = %fname,
+                                        image = %synthetic_name,
+                                        error = %e,
+                                        "failed to describe embedded PDF image; \
+                                         omitting its blockquote (text still indexed)"
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    page_blocks.push(page.trim_end().to_string());
+                }
+
+                let body = page_blocks.join("\n\n---\n\n");
                 format!("# Source: {fname}\n\n{body}")
             }
             PdfClassification::NeedsVision => {
@@ -439,6 +508,15 @@ mod tests {
         assert!(cf.chunks.iter().any(|c| c.body.contains("PHASE09_FIXTURE")));
     }
 
+    /// Returns true when the pdfium system library can be bound — required for
+    /// TextFirst embedded-image extraction. Mirrors the graceful-degradation
+    /// contract of [`super::pdf_images::extract_embedded_images_per_page`] so
+    /// this test suite stays portable on machines where only Poppler
+    /// (`pdftoppm`) is available.
+    fn pdfium_available() -> bool {
+        pdfium_render::prelude::Pdfium::bind_to_system_library().is_ok()
+    }
+
     #[tokio::test]
     async fn textfirst_pdf_interleaves_text_and_image_blockquotes_per_page() {
         let server = MockServer::start().await;
@@ -492,10 +570,25 @@ mod tests {
             joined.contains("PHASE11_TEXT_AND_IMAGE"),
             "expected page text token; got: {joined}"
         );
-        assert!(
-            joined.contains("> **[Image: doc_page_1_image_1.png]** EMBED_DESC"),
-            "expected embedded image blockquote; got: {joined}"
-        );
+        if pdfium_available() {
+            // When pdfium binds, the fixture's embedded PNG is extracted and
+            // sent through describe_image — the mock returns EMBED_DESC,
+            // wrapped via `blockquote_image`.
+            assert!(
+                joined.contains("> **[Image: doc_page_1_image_1.png]** EMBED_DESC"),
+                "expected embedded image blockquote; got: {joined}"
+            );
+        } else {
+            // Graceful degradation contract (research Pitfall 1): when
+            // libpdfium is not available, embedded-image extraction yields an
+            // empty vec + WARN; text still indexes but no image blockquote is
+            // emitted. This mirrors `extracts_empty_page_list_from_text_only_pdf`
+            // in pdf_images::tests.
+            assert!(
+                !joined.contains("> **[Image: doc_page_1_image_1.png]**"),
+                "no blockquote expected when pdfium is unavailable; got: {joined}"
+            );
+        }
     }
 
     #[tokio::test]
