@@ -156,7 +156,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. A scanned PDF produces markdown body content derived from OCR, not empty stubs
   2. Switching OCR provider (Anthropic vs Google) is documented and fails clearly if credentials are missing
-**Plans**: TBD
+**Plans**: `10-01-PLAN.md`, `10-02-PLAN.md`
 
 ### Phase 11: Vision enrichment & idempotency
 **Goal**: Images embedded in PDFs and standalone image files get semantic descriptions via Anthropic vision; full page-order reassembly; hash-based skip when sources are unchanged.
@@ -183,5 +183,5 @@ Plans:
 | 7. Operational Logging | v1.1 | 1/1 | Complete    | 2026-04-14 |
 | 8. Search UX Enhancements | v1.1 | 1/1 | Complete | 2026-04-14 |
 | 9. Preprocessor foundation | v1.2 | 3/3 | Complete | 2026-04-15 |
-| 10. OCR providers | v1.2 | 0/? | Planned | — |
+| 10. OCR providers | v1.2 | 2/2 | Ready to execute | — |
 | 11. Vision enrichment & idempotency | v1.2 | 0/? | Planned | — |
