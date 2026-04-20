@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
+use local_index::credentials::OcrProvider;
+
 /// local-index: Semantic search over your markdown vault
 ///
 /// Watches a directory tree, chunks markdown files by heading, embeds via the
@@ -57,6 +59,10 @@ pub enum Command {
             global = false
         )]
         exclude_asset_globs: Vec<String>,
+
+        /// OCR backend for rasterized scanned PDFs (`anthropic` default). Raster images still use Anthropic vision when a key is present.
+        #[arg(long = "ocr-provider", value_enum, env = "LOCAL_INDEX_OCR_PROVIDER", global = false)]
+        ocr_provider: Option<OcrProvider>,
     },
 
     /// Start a persistent daemon that watches for file changes
@@ -88,6 +94,10 @@ pub enum Command {
             global = false
         )]
         exclude_asset_globs: Vec<String>,
+
+        /// OCR backend for rasterized scanned PDFs (`anthropic` default). Raster images still use Anthropic vision when a key is present.
+        #[arg(long = "ocr-provider", value_enum, env = "LOCAL_INDEX_OCR_PROVIDER", global = false)]
+        ocr_provider: Option<OcrProvider>,
     },
 
     /// Search the indexed vault

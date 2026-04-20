@@ -3,8 +3,10 @@ mod cli;
 use anyhow::Result;
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
-use local_index::credentials::resolve_voyage_key;
-use local_index::pipeline::assets::{discover_asset_paths, ingest_asset_path, AnthropicAssetClient};
+use local_index::credentials::{resolve_ocr_provider, resolve_voyage_key};
+use local_index::pipeline::assets::{
+    build_ocr_and_image_clients, discover_asset_paths, ingest_asset_path,
+};
 use local_index::pipeline::chunker::chunk_markdown;
 use local_index::pipeline::embedder::{Embedder, VoyageEmbedder};
 use local_index::pipeline::store::{ChunkStore, compute_content_hash};
@@ -46,6 +48,7 @@ async fn main() -> Result<()> {
             force_reindex,
             skip_asset_processing,
             exclude_asset_globs,
+            ocr_provider,
         } => {
             let vault_path = path
                 .canonicalize()
@@ -314,7 +317,9 @@ async fn main() -> Result<()> {
             if *skip_asset_processing {
                 tracing::info!("asset processing skipped");
             } else {
-                let anthropic = AnthropicAssetClient::new_from_env().ok();
+                let provider = resolve_ocr_provider(*ocr_provider);
+                let (pdf_ocr_owned, anthropic_opt) =
+                    build_ocr_and_image_clients(provider).map_err(|e| anyhow::anyhow!("{}", e))?;
                 let exts = ["pdf", "png", "jpg", "jpeg", "webp"];
                 let globs: Vec<String> = exclude_asset_globs.clone();
                 let asset_paths = discover_asset_paths(&vault_path, &exts, &globs)
@@ -328,7 +333,8 @@ async fn main() -> Result<()> {
                         &data_dir,
                         max_asset_b,
                         max_pdf_pages,
-                        anthropic.as_ref(),
+                        pdf_ocr_owned.as_ref(),
+                        anthropic_opt.as_ref(),
                     )
                     .await
                     .map_err(|e| anyhow::anyhow!("{}", e))?;
@@ -429,6 +435,7 @@ async fn main() -> Result<()> {
             bind,
             skip_asset_processing,
             exclude_asset_globs,
+            ocr_provider,
         } => {
             let vault_path = path
                 .canonicalize()
@@ -453,6 +460,7 @@ async fn main() -> Result<()> {
                 db_path,
                 *skip_asset_processing,
                 exclude_asset_globs.clone(),
+                resolve_ocr_provider(*ocr_provider),
             )
             .await?;
         }

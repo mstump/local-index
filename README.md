@@ -108,6 +108,26 @@ When asset preprocessing is enabled (the default), `local-index index` and `loca
 - **`ANTHROPIC_API_KEY`** is required when an asset needs vision (scanned PDFs and images). Text-first PDFs only need **`VOYAGE_API_KEY`**.
 - **`LOCAL_INDEX_MAX_PDF_PAGES`** caps how many PDF pages may be rasterized and sent through vision per file (default **30**).
 
+### OCR providers (scanned PDFs)
+
+Rasterized pages from **scanned** PDFs can be turned into text with either **Anthropic vision** (default) or **Google Document AI**. Standalone images (`png`, `jpg`, `jpeg`, `webp`) still use **Anthropic** vision when `ANTHROPIC_API_KEY` is set—change that in a later phase.
+
+| Setting | Values |
+|---------|--------|
+| **`LOCAL_INDEX_OCR_PROVIDER`** | `anthropic` (default) or `google` |
+| CLI | `--ocr-provider anthropic` / `--ocr-provider google` on **`index`** and **`daemon`** (overrides env when passed) |
+
+**Anthropic (default):** set **`ANTHROPIC_API_KEY`**. Same key as for standalone images.
+
+**Google Document AI:** create a [Document AI](https://cloud.google.com/document-ai/docs) processor, then set:
+
+- **`GOOGLE_APPLICATION_CREDENTIALS`** — path to a service account JSON key with access to Document AI
+- **`GOOGLE_CLOUD_PROJECT`** — GCP project id
+- **`GOOGLE_DOCUMENT_AI_LOCATION`** — processor region (e.g. `us`, `eu`)
+- **`GOOGLE_DOCUMENT_AI_PROCESSOR_ID`** — processor id from the Cloud Console
+
+If `LOCAL_INDEX_OCR_PROVIDER=google` and any of these are missing, the binary fails at startup with an error that lists every missing variable.
+
 ## CLI Reference
 
 ### `index`

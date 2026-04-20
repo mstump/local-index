@@ -6,6 +6,7 @@ use sha2::{Digest, Sha256};
 
 use super::anthropic_extract::AnthropicAssetClient;
 use super::cache::{cache_path_for_hash, ensure_cache_parent};
+use super::ocr::OcrService;
 use super::pdf_local::{classify_pdf, extract_text_pdf_as_markdown, PdfClassification};
 use super::pdf_raster::rasterize_pdf_pages_to_png;
 use crate::error::LocalIndexError;
@@ -31,7 +32,8 @@ pub async fn ingest_asset_path(
     data_dir: &Path,
     max_bytes: usize,
     max_pdf_pages: usize,
-    client: Option<&AnthropicAssetClient>,
+    pdf_ocr: Option<&OcrService>,
+    image_vision: Option<&AnthropicAssetClient>,
 ) -> Result<ChunkedFile, LocalIndexError> {
     let abs = vault.join(asset_rel);
     let abs = abs.canonicalize().map_err(LocalIndexError::Io)?;
@@ -70,10 +72,11 @@ pub async fn ingest_asset_path(
                 format!("# Source: {fname}\n\n{body}")
             }
             PdfClassification::NeedsVision => {
-                let Some(c) = client else {
+                let Some(ocr) = pdf_ocr else {
                     return Err(LocalIndexError::Credential(
-                        "ANTHROPIC_API_KEY is required for scanned PDFs (NeedsVision). \
-                         Set ANTHROPIC_API_KEY from https://console.anthropic.com/"
+                        "No OCR provider configured for scanned PDFs (NeedsVision). \
+                         Set ANTHROPIC_API_KEY for the default Anthropic OCR path \
+                         (https://console.anthropic.com/)."
                             .to_string(),
                     ));
                 };
@@ -83,11 +86,7 @@ pub async fn ingest_asset_path(
                         "no pages rasterized from PDF".to_string(),
                     ));
                 }
-                let mut parts = Vec::new();
-                for png in &pngs {
-                    let desc = c.describe_raster_page(png).await?;
-                    parts.push(desc);
-                }
+                let parts = ocr.ocr_scanned_pdf_pages(&pngs).await?;
                 let body = parts.join("\n\n---\n\n");
                 format!("# Source: {fname}\n\n{body}")
             }
@@ -98,7 +97,7 @@ pub async fn ingest_asset_path(
                 "unsupported image extension: {ext}"
             )));
         };
-        let Some(c) = client else {
+        let Some(c) = image_vision else {
             return Err(LocalIndexError::Credential(
                 "ANTHROPIC_API_KEY is required for image assets. \
                  Set ANTHROPIC_API_KEY from https://console.anthropic.com/"
@@ -136,6 +135,8 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
     use tempfile::tempdir;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     #[tokio::test]
     async fn text_first_pdf_chunks_use_asset_path() {
@@ -153,6 +154,7 @@ mod tests {
             pdf_bytes.len() * 2,
             30,
             None,
+            None,
         )
         .await
         .unwrap();
@@ -161,5 +163,54 @@ mod tests {
             "chunk file_path should be vault-relative asset path"
         );
         assert!(cf.chunks.iter().any(|c| c.body.contains("PHASE09_FIXTURE")));
+    }
+
+    #[tokio::test]
+    async fn needs_vision_pdf_routes_raster_pages_through_ocr_service() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/messages"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "content": [{"type": "text", "text": "OCR_PAGE_BODY"}],
+                "id": "msg_1",
+                "model": "claude",
+                "role": "assistant",
+                "stop_reason": "end_turn",
+                "type": "message",
+                "usage": {"input_tokens": 1, "output_tokens": 1}
+            })))
+            .mount(&server)
+            .await;
+
+        let vault = tempdir().unwrap();
+        let pdf_path = vault.path().join("scan.pdf");
+        let pdf_bytes = crate::pipeline::assets::pdf_local::fixture_needs_vision_single_page_pdf();
+        tokio::fs::write(&pdf_path, &pdf_bytes).await.unwrap();
+        let rel = Path::new("scan.pdf");
+        let data_dir = vault.path().join(".local-index");
+        tokio::fs::create_dir_all(&data_dir).await.unwrap();
+
+        let client =
+            AnthropicAssetClient::new_for_test("test-key", server.uri());
+        let pdf_ocr = Some(OcrService::Anthropic(client.clone()));
+        let cf = ingest_asset_path(
+            vault.path(),
+            rel,
+            &data_dir,
+            pdf_bytes.len() * 2,
+            30,
+            pdf_ocr.as_ref(),
+            Some(&client),
+        )
+        .await
+        .expect("ingest needs-vision pdf");
+
+        assert!(
+            cf.chunks
+                .iter()
+                .any(|c| c.body.contains("OCR_PAGE_BODY")),
+            "chunk body should include mocked OCR text: {:?}",
+            cf.chunks.first().map(|c| &c.body)
+        );
     }
 }

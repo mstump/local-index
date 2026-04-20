@@ -146,6 +146,50 @@ pub(crate) fn fixture_single_page_text_pdf() -> Vec<u8> {
     buf
 }
 
+/// Single-page PDF with essentially no extractable text — classifies as [`PdfClassification::NeedsVision`].
+#[cfg(test)]
+pub(crate) fn fixture_needs_vision_single_page_pdf() -> Vec<u8> {
+    let mut doc = Document::with_version("1.5");
+    let info_id = doc.add_object(dictionary! {
+        "Title" => Object::string_literal("needs-vision fixture"),
+        "Creator" => Object::string_literal("local-index tests"),
+    });
+    let pages_id = doc.new_object_id();
+    let resources_id = doc.add_object(dictionary! {});
+    let content = Content { operations: vec![] };
+    let pages: Vec<Object> = [content]
+        .into_iter()
+        .map(|content| {
+            let content_id = doc.add_object(Stream::new(dictionary! {}, content.encode().unwrap()));
+            let page = doc.add_object(dictionary! {
+                "Type" => "Page",
+                "Parent" => pages_id,
+                "Contents" => content_id,
+            });
+            page.into()
+        })
+        .collect();
+
+    let pages_dict = dictionary! {
+        "Type" => "Pages",
+        "Kids" => pages,
+        "Count" => 1,
+        "Resources" => resources_id,
+        "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()],
+    };
+    doc.objects.insert(pages_id, Object::Dictionary(pages_dict));
+    let catalog_id = doc.add_object(dictionary! {
+        "Type" => "Catalog",
+        "Pages" => pages_id,
+    });
+    doc.trailer.set("Root", catalog_id);
+    doc.trailer.set("Info", info_id);
+    doc.compress();
+    let mut buf = Vec::new();
+    doc.save_to(&mut buf).expect("save pdf");
+    buf
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,6 +200,15 @@ mod tests {
         assert_eq!(
             classify_pdf(&bytes, bytes.len()).unwrap(),
             PdfClassification::TextFirst
+        );
+    }
+
+    #[test]
+    fn classify_needs_vision_sparse_fixture_pdf() {
+        let bytes = fixture_needs_vision_single_page_pdf();
+        assert_eq!(
+            classify_pdf(&bytes, bytes.len()).unwrap(),
+            PdfClassification::NeedsVision
         );
     }
 

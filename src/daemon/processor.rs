@@ -11,7 +11,7 @@ use tokio_util::sync::CancellationToken;
 use crate::daemon::metrics;
 use crate::pipeline::assets::{
     build_asset_exclude_override, ingest_asset_path, is_asset_path_excluded_by_override,
-    AnthropicAssetClient,
+    AnthropicAssetClient, OcrService,
 };
 use crate::pipeline::chunker::chunk_markdown;
 use crate::pipeline::embedder::Embedder;
@@ -50,6 +50,7 @@ pub async fn run_event_processor<E: Embedder>(
     data_dir: PathBuf,
     store: Arc<ChunkStore>,
     embedder: Arc<E>,
+    pdf_ocr: Option<Arc<OcrService>>,
     anthropic: Option<Arc<AnthropicAssetClient>>,
     skip_assets: bool,
     exclude_globs: Vec<String>,
@@ -134,6 +135,7 @@ pub async fn run_event_processor<E: Embedder>(
                                                 &data_dir,
                                                 &store,
                                                 &embedder,
+                                                pdf_ocr.as_ref(),
                                                 anthropic.as_ref(),
                                                 skip_assets,
                                                 &exclude_override,
@@ -176,6 +178,7 @@ pub async fn run_event_processor<E: Embedder>(
                                                 &data_dir,
                                                 &store,
                                                 &embedder,
+                                                pdf_ocr.as_ref(),
                                                 anthropic.as_ref(),
                                                 skip_assets,
                                                 &exclude_override,
@@ -197,6 +200,7 @@ pub async fn run_event_processor<E: Embedder>(
                                             &data_dir,
                                             &store,
                                             &embedder,
+                                            pdf_ocr.as_ref(),
                                             anthropic.as_ref(),
                                             skip_assets,
                                             &exclude_override,
@@ -229,6 +233,7 @@ pub async fn run_event_processor<E: Embedder>(
                                     &data_dir,
                                     &store,
                                     &embedder,
+                                    pdf_ocr.as_ref(),
                                     anthropic.as_ref(),
                                     skip_assets,
                                     &exclude_override,
@@ -289,6 +294,7 @@ async fn reindex_tracked_path<E: Embedder>(
     data_dir: &Path,
     store: &ChunkStore,
     embedder: &E,
+    pdf_ocr: Option<&Arc<OcrService>>,
     anthropic: Option<&Arc<AnthropicAssetClient>>,
     skip_assets: bool,
     exclude_override: &Override,
@@ -309,7 +315,8 @@ async fn reindex_tracked_path<E: Embedder>(
             data_dir,
             store,
             embedder,
-            anthropic.map(|a| a.as_ref()),
+            pdf_ocr,
+            anthropic,
             exclude_override,
             max_asset_b,
             max_pdf_pages,
@@ -325,7 +332,8 @@ async fn reindex_asset<E: Embedder>(
     data_dir: &Path,
     store: &ChunkStore,
     embedder: &E,
-    anthropic: Option<&AnthropicAssetClient>,
+    pdf_ocr: Option<&Arc<OcrService>>,
+    anthropic: Option<&Arc<AnthropicAssetClient>>,
     exclude_override: &Override,
     max_asset_b: usize,
     max_pdf_pages: usize,
@@ -337,13 +345,16 @@ async fn reindex_asset<E: Embedder>(
     let relative = path.strip_prefix(vault_path).unwrap_or(path);
     let relative_str = relative.to_string_lossy().to_string();
 
+    let pdf_ref = pdf_ocr.map(|p| p.as_ref());
+    let vision_ref = anthropic.map(|a| a.as_ref());
     let cf = match ingest_asset_path(
         vault_path,
         relative,
         data_dir,
         max_asset_b,
         max_pdf_pages,
-        anthropic,
+        pdf_ref,
+        vision_ref,
     )
     .await
     {

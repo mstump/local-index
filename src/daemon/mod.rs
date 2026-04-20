@@ -10,8 +10,8 @@ use tokio::sync::mpsc;
 use tokio_util::task::TaskTracker;
 
 use crate::claude_rerank::AnthropicReranker;
-use crate::credentials::resolve_voyage_key;
-use crate::pipeline::assets::AnthropicAssetClient;
+use crate::credentials::{OcrProvider, resolve_voyage_key};
+use crate::pipeline::assets::build_ocr_and_image_clients;
 use crate::pipeline::embedder::VoyageEmbedder;
 use crate::pipeline::store::ChunkStore;
 use crate::web::context::{AppState, DashboardConfig};
@@ -24,6 +24,7 @@ pub async fn run_daemon(
     data_dir: String,
     skip_asset_processing: bool,
     exclude_asset_globs: Vec<String>,
+    ocr_provider: OcrProvider,
 ) -> anyhow::Result<()> {
     // 1. Install metrics recorder FIRST (before any metrics macros are used)
     let prom_handle = metrics::setup_metrics()?;
@@ -33,11 +34,13 @@ pub async fn run_daemon(
     let api_key = resolve_voyage_key()?;
     let embedder = Arc::new(VoyageEmbedder::new(api_key));
     let data_dir_path = PathBuf::from(&data_dir);
-    let anthropic = if skip_asset_processing {
-        None
+    let (pdf_ocr_owned, anthropic_opt) = if skip_asset_processing {
+        (None, None)
     } else {
-        AnthropicAssetClient::new_from_env().ok().map(Arc::new)
+        build_ocr_and_image_clients(ocr_provider).map_err(anyhow::Error::msg)?
     };
+    let pdf_ocr = pdf_ocr_owned.map(Arc::new);
+    let anthropic = anthropic_opt.map(Arc::new);
 
     // 3. Set initial gauge values (count_total_chunks and count_distinct_files from Plan 02)
     if let Ok(total) = store.count_total_chunks().await {
@@ -81,6 +84,7 @@ pub async fn run_daemon(
     let proc_store = Arc::clone(&store);
     let proc_embedder = Arc::clone(&embedder);
     let proc_data_dir = data_dir_path.clone();
+    let proc_pdf_ocr = pdf_ocr.clone();
     let proc_anthropic = anthropic.clone();
     let proc_exclude = exclude_asset_globs.clone();
     tracker.spawn(async move {
@@ -90,6 +94,7 @@ pub async fn run_daemon(
             proc_data_dir,
             proc_store,
             proc_embedder,
+            proc_pdf_ocr,
             proc_anthropic,
             skip_asset_processing,
             proc_exclude,
