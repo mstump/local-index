@@ -32,7 +32,7 @@
 
 - [x] **Phase 9: Preprocessor foundation** - Integrated `index`/`daemon` asset pipeline: PDF classification, local text + Claude vision for scans, standalone image descriptions, ephemeral cache under data dir, chunks attributed to source asset paths (PRE-01–PRE-06, PRE-13, PRE-14 subset; see `09-CONTEXT.md`) (completed 2026-04-15)
 - [x] **Phase 10: OCR providers** - Rasterize scanned pages; Anthropic Messages OCR path; optional Google Document AI when configured (PRE-07, PRE-08) (completed 2026-04-20)
-- [ ] **Phase 11: Vision enrichment & idempotency** - Anthropic vision for images; full PDF reassembly and standalone images; blockquote format; hash-based skip (PRE-04, PRE-09–PRE-12, PRE-13 completion)
+- [x] **Phase 11: Vision enrichment & idempotency** - Anthropic vision for images; full PDF reassembly and standalone images; blockquote format; hash-based skip (PRE-04, PRE-09–PRE-12, PRE-13 completion) (completed 2026-04-20)
 
 ## Phase Details
 
@@ -176,7 +176,7 @@ Plans:
 Plans:
 - [x] 11-01-PLAN.md — Cache idempotency + blockquote helper + standalone/NeedsVision wrapping
 - [x] 11-02-PLAN.md — TextFirst PDF embedded-image extraction + per-page interleaving
-- [ ] 11-03-PLAN.md — README ephemeral-cache and double-index documentation (PRE-13)
+- [x] 11-03-PLAN.md — README ephemeral-cache and double-index documentation (PRE-13)
 
 ## Progress
 
@@ -194,4 +194,4 @@ Plans:
 | 8. Search UX Enhancements | v1.1 | 1/1 | Complete | 2026-04-14 |
 | 9. Preprocessor foundation | v1.2 | 3/3 | Complete | 2026-04-15 |
 | 10. OCR providers | v1.2 | 2/2 | Complete    | 2026-04-20 |
-| 11. Vision enrichment & idempotency | v1.2 | 3/3 | Complete   | 2026-04-20 |
+| 11. Vision enrichment & idempotency | v1.2 | 3/3 | Complete    | 2026-04-20 |
