@@ -9,6 +9,7 @@ mod document_ai;
 mod ignore_walk;
 mod ingest;
 mod ocr;
+mod pdf_images;
 mod pdf_local;
 mod pdf_raster;
 
