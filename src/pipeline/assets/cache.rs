@@ -47,4 +47,48 @@ mod tests {
         assert!(p1.to_string_lossy().contains("de/ad"));
         assert!(p1.ends_with(format!("{h}.txt")));
     }
+
+    #[tokio::test]
+    async fn read_cache_if_present_returns_content_when_non_empty() {
+        let dir = tempdir().unwrap();
+        let p = dir.path().join("hit.txt");
+        tokio::fs::write(&p, b"hello\n").await.unwrap();
+        let got = read_cache_if_present(&p).await;
+        assert_eq!(got.as_deref(), Some("hello\n"));
+    }
+
+    #[tokio::test]
+    async fn read_cache_if_present_returns_none_for_empty_file() {
+        let dir = tempdir().unwrap();
+        let p = dir.path().join("empty.txt");
+        tokio::fs::write(&p, b"").await.unwrap();
+        let got = read_cache_if_present(&p).await;
+        assert!(got.is_none(), "empty file should be treated as miss");
+    }
+
+    #[tokio::test]
+    async fn read_cache_if_present_returns_none_for_whitespace_file() {
+        let dir = tempdir().unwrap();
+        let p = dir.path().join("whitespace.txt");
+        tokio::fs::write(&p, b"   \n").await.unwrap();
+        let got = read_cache_if_present(&p).await;
+        assert!(got.is_none(), "whitespace-only file should be treated as miss");
+    }
+
+    #[tokio::test]
+    async fn read_cache_if_present_returns_none_silently_when_missing() {
+        let dir = tempdir().unwrap();
+        let p = dir.path().join("does_not_exist.txt");
+        let got = read_cache_if_present(&p).await;
+        assert!(got.is_none(), "NotFound should be a silent miss");
+    }
+
+    #[tokio::test]
+    async fn read_cache_if_present_returns_none_when_path_is_directory() {
+        let dir = tempdir().unwrap();
+        let dir_path = dir.path().join("not_a_file");
+        std::fs::create_dir_all(&dir_path).unwrap();
+        let got = read_cache_if_present(&dir_path).await;
+        assert!(got.is_none(), "directory path should produce miss with WARN");
+    }
 }
