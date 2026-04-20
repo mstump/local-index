@@ -55,3 +55,65 @@ async fn describe_image_posts_messages_contract() {
         local_index::pipeline::assets::ASSET_VISION_PROMPT
     );
 }
+
+#[tokio::test]
+async fn textfirst_pdf_calls_vision_per_embedded_image() {
+    use local_index::pipeline::assets::ingest_asset_path;
+    use std::path::Path;
+    use tempfile::tempdir;
+
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/messages"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "content": [{"type": "text", "text": "EMBEDDED_IMG_DESC"}],
+            "id": "msg_1",
+            "model": "claude",
+            "role": "assistant",
+            "stop_reason": "end_turn",
+            "type": "message",
+            "usage": {"input_tokens": 1, "output_tokens": 1}
+        })))
+        .mount(&server)
+        .await;
+
+    let vault = tempdir().unwrap();
+    let pdf_bytes = local_index::test_support::fixture_single_page_pdf_with_embedded_image();
+    let pdf_path = vault.path().join("doc.pdf");
+    tokio::fs::write(&pdf_path, &pdf_bytes).await.unwrap();
+    let rel = Path::new("doc.pdf");
+    let data_dir = vault.path().join(".local-index");
+    tokio::fs::create_dir_all(&data_dir).await.unwrap();
+
+    let client = AnthropicAssetClient::new_for_test("test-key", server.uri());
+    let cf = ingest_asset_path(
+        vault.path(),
+        rel,
+        &data_dir,
+        pdf_bytes.len() * 2,
+        30,
+        None,
+        Some(&client),
+    )
+    .await
+    .expect("ingest textfirst pdf with embedded image");
+
+    let reqs = server.received_requests().await.unwrap();
+    assert_eq!(
+        reqs.len(),
+        1,
+        "expected exactly one vision call (one embedded image); got {}",
+        reqs.len()
+    );
+
+    let joined: String = cf
+        .chunks
+        .iter()
+        .map(|c| c.body.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        joined.contains("> **[Image: doc_page_1_image_1.png]** EMBEDDED_IMG_DESC"),
+        "expected embedded image blockquote; got: {joined}"
+    );
+}

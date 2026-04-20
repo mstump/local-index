@@ -4,5 +4,6 @@ pub mod daemon;
 pub mod error;
 pub mod pipeline;
 pub mod search;
+pub mod test_support;
 pub mod types;
 pub mod web;

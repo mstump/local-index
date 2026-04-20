@@ -18,6 +18,7 @@ pub use document_ai::DocumentAiClient;
 pub use ocr::OcrService;
 
 pub use ingest::ingest_asset_path;
+pub use pdf_local::fixture_single_page_pdf_with_embedded_image;
 
 use crate::credentials::OcrProvider;
 use crate::error::LocalIndexError;
