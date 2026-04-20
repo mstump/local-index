@@ -5,7 +5,7 @@ use std::path::Path;
 use sha2::{Digest, Sha256};
 
 use super::anthropic_extract::AnthropicAssetClient;
-use super::cache::{cache_path_for_hash, ensure_cache_parent};
+use super::cache::{cache_path_for_hash, ensure_cache_parent, read_cache_if_present};
 use super::ocr::OcrService;
 use super::pdf_local::{classify_pdf, extract_text_pdf_as_markdown, PdfClassification};
 use super::pdf_raster::rasterize_pdf_pages_to_png;
@@ -21,6 +21,26 @@ fn media_type_for_image(path: &Path) -> Option<&'static str> {
         "webp" => "image/webp",
         _ => return None,
     })
+}
+
+/// Format a vision description as the canonical image blockquote (`D-04`, `D-05`).
+///
+/// Label is the filename only (no path components). Multi-line descriptions
+/// have every continuation line prefixed with `> ` so the blockquote is
+/// one contiguous markdown block.
+fn blockquote_image(filename: &str, description: &str) -> String {
+    let mut out = format!("> **[Image: {filename}]** ");
+    let mut first = true;
+    for line in description.lines() {
+        if first {
+            out.push_str(line);
+            first = false;
+        } else {
+            out.push_str("\n> ");
+            out.push_str(line);
+        }
+    }
+    out
 }
 
 /// Ingest a single vault-relative asset path: classify, extract locally and/or call vision, then chunk.
@@ -54,6 +74,27 @@ pub async fn ingest_asset_path(
         });
     }
 
+    // === PHASE 11: cache-read gate (PRE-04, D-02, D-03) ===
+    // SHA-256 over source bytes is computed once, up front; the cache path is
+    // derived from that hash. If the cache hits with non-empty contents, every
+    // downstream API call (OCR, vision) is skipped.
+    let mut hasher = Sha256::new();
+    hasher.update(&bytes);
+    let hex: String = hasher
+        .finalize()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    let cache_path = cache_path_for_hash(data_dir, &hex);
+
+    if let Some(cached) = read_cache_if_present(&cache_path).await {
+        tracing::debug!(
+            path = %cache_path.display(),
+            "asset cache hit; skipping API"
+        );
+        return chunk_markdown(&cached, asset_rel);
+    }
+
     let fname = asset_rel
         .file_name()
         .and_then(|s| s.to_str())
@@ -68,6 +109,7 @@ pub async fn ingest_asset_path(
     let synthetic = if ext == "pdf" {
         match classify_pdf(&bytes, max_bytes)? {
             PdfClassification::TextFirst => {
+                // UNCHANGED in Plan 11-01 — Plan 11-02 expands this branch with embedded-image vision.
                 let body = extract_text_pdf_as_markdown(&bytes, max_bytes)?;
                 format!("# Source: {fname}\n\n{body}")
             }
@@ -86,7 +128,19 @@ pub async fn ingest_asset_path(
                         "no pages rasterized from PDF".to_string(),
                     ));
                 }
-                let parts = ocr.ocr_scanned_pdf_pages(&pngs).await?;
+                let ocr_parts = ocr.ocr_scanned_pdf_pages(&pngs).await?;
+                let stem = Path::new(fname)
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("doc");
+                let parts: Vec<String> = ocr_parts
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, text)| {
+                        let synthetic_name = format!("{stem}_page_{}.png", i + 1);
+                        blockquote_image(&synthetic_name, &text)
+                    })
+                    .collect();
                 let body = parts.join("\n\n---\n\n");
                 format!("# Source: {fname}\n\n{body}")
             }
@@ -105,22 +159,16 @@ pub async fn ingest_asset_path(
             ));
         };
         let desc = c.describe_image(mt, &bytes).await?;
-        format!("# {fname}\n\n{desc}")
+        let block = blockquote_image(fname, &desc);
+        format!("# {fname}\n\n{block}\n")
     } else {
         return Err(LocalIndexError::Config(format!(
             "unsupported asset extension: {ext}"
         )));
     };
 
-    // Optional cache write (debug / retry aid) — does not affect chunk provenance.
-    let mut hasher = Sha256::new();
-    hasher.update(&bytes);
-    let hex: String = hasher
-        .finalize()
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
-    let cache_path = cache_path_for_hash(data_dir, &hex);
+    // Cache write is now only reached on cache miss — the cache-read gate above
+    // short-circuits hits. The write path itself is unchanged (D-02, D-03).
     if let Err(e) = ensure_cache_parent(&cache_path) {
         tracing::debug!(error = %e, "asset cache mkdir skipped");
     } else if let Err(e) = tokio::fs::write(&cache_path, synthetic.as_bytes()).await {
