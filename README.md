@@ -108,6 +108,90 @@ When asset preprocessing is enabled (the default), `local-index index` and `loca
 - **`ANTHROPIC_API_KEY`** is required when an asset needs vision (scanned PDFs and images). Text-first PDFs only need **`VOYAGE_API_KEY`**.
 - **`LOCAL_INDEX_MAX_PDF_PAGES`** caps how many PDF pages may be rasterized and sent through vision per file (default **30**).
 
+### Ephemeral asset cache and idempotency
+
+Asset preprocessing is **idempotent**. Every PDF and image is identified by
+the SHA-256 of its raw bytes; before any Anthropic or OCR API call,
+`local-index` checks an ephemeral on-disk cache and reuses the previously
+computed synthetic markdown when the source is unchanged.
+
+**Cache layout** — two-level shard, under the configured data directory:
+
+```text
+<data_dir>/asset-cache/ab/cd/{sha256}.txt
+```
+
+The two-byte shards (`ab/cd/`) are the first four hex characters of the
+SHA-256 digest. The cache file contains the synthetic markdown produced for
+that exact source content — nothing more. No companion `.processed.md`
+files are ever written next to your PDFs or images in the vault.
+
+**Cache behavior:**
+
+- **Hit (file exists and is non-empty)** → re-use the cached markdown,
+  skip the Anthropic/OCR API call entirely.
+- **Miss (file does not exist)** → call the API, chunk the result, then
+  write the synthetic markdown to the cache on success.
+- **Corrupt (file exists but is empty or unreadable)** → emit a
+  `tracing::warn!` with `corrupt_cache = true` and the path, then
+  re-fetch as a cache miss and overwrite the file.
+
+**Cache invalidation:**
+
+```sh
+rm -rf <data_dir>/asset-cache/
+```
+
+The cache key is source-bytes SHA-256 only. Changing
+`LOCAL_INDEX_ASSET_MODEL` or the Anthropic vision prompt does **not**
+invalidate existing cache entries — delete `asset-cache/` to force a
+refresh after those kinds of changes.
+
+**Double-index prevention:** The markdown walker only indexes files with
+`.md` extension. Raw `.pdf`, `.png`, `.jpg`, `.jpeg`, and `.webp` files
+are routed exclusively through the asset pipeline — they are never
+indexed as if they were markdown. Combined with `file_path` attribution
+pointing at the original asset path, the same PDF never produces two
+sets of chunks.
+
+**TextFirst PDF embedded images (Phase 11):** Text-first PDFs now have
+their embedded raster figures extracted via `pdfium-render` and
+described through Anthropic vision. For each TextFirst page, the
+synthetic markdown contains the page text followed by a blockquote per
+figure using the filename convention
+`{stem}_page_{N}_image_{I}.png` (1-based page and image indices). Pages
+are separated by `\n\n---\n\n`. Scanned-PDF pages (NeedsVision) continue
+to be rasterized and OCR'd as before, with each page's OCR body wrapped
+in the same blockquote format using `{stem}_page_{N}.png`.
+
+**Graceful degradation:**
+
+- If `ANTHROPIC_API_KEY` is not set on a TextFirst PDF with embedded
+  images: a WARN is logged once and the PDF indexes its page text only
+  (image descriptions are omitted).
+- If the system `libpdfium` is not available: embedded-image extraction
+  is skipped with a WARN; the PDF still indexes its extracted text. PDF
+  *rasterization* (for scanned/NeedsVision PDFs) additionally has a
+  `pdftoppm` (Poppler) fallback.
+
+```mermaid
+flowchart TD
+    A["ingest_asset_path(asset)"] --> B["read bytes + size cap"]
+    B --> C["SHA-256(bytes) → hex"]
+    C --> D{"cache file<br/>exists & non-empty?"}
+    D -->|yes| E["read cached markdown"] --> F["chunk + embed"]
+    D -->|no, or empty| G["WARN corrupt_cache<br/>(if empty)"]
+    G --> H["classify / dispatch"]
+    H -->|PDF TextFirst| I["per-page: extract text (lopdf)<br/>+ embedded images (pdfium)<br/>+ describe_image per image"]
+    H -->|PDF NeedsVision| J["rasterize + OCR per page"]
+    H -->|image| K["describe_image"]
+    I --> L["compose synthetic markdown<br/>(blockquote per image)"]
+    J --> L
+    K --> L
+    L --> M["tokio::fs::write cache"]
+    M --> F
+```
+
 ### OCR providers (scanned PDFs)
 
 Rasterized pages from **scanned** PDFs can be turned into text with either **Anthropic vision** (default) or **Google Document AI**. Standalone images (`png`, `jpg`, `jpeg`, `webp`) still use **Anthropic** vision when `ANTHROPIC_API_KEY` is set—change that in a later phase.
