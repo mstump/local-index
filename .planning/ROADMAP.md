@@ -47,6 +47,11 @@
 **Plans**: 3 plans
 
 Plans:
+- [ ] 11-01-PLAN.md — Cache idempotency + blockquote helper + standalone/NeedsVision wrapping
+- [ ] 11-02-PLAN.md — TextFirst PDF embedded-image extraction + per-page interleaving
+- [ ] 11-03-PLAN.md — README ephemeral-cache and double-index documentation (PRE-13)
+
+Plans:
 - [x] 01-01: CLI skeleton with clap derive, subcommands, global flags
 - [x] 01-02: Markdown walker, YAML frontmatter parser, heading breadcrumbs
 - [x] 01-03: Smart size-based chunker with semantic break-point scoring
@@ -166,7 +171,12 @@ Plans:
   1. Re-running the preprocessor on an unchanged source skips work (hash match in frontmatter)
   2. PDF output interleaves text and image descriptions; standalone images produce small markdown companions
   3. Image descriptions follow the SEED-001 blockquote convention
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 11-01-PLAN.md — Cache idempotency + blockquote helper + standalone/NeedsVision wrapping
+- [ ] 11-02-PLAN.md — TextFirst PDF embedded-image extraction + per-page interleaving
+- [ ] 11-03-PLAN.md — README ephemeral-cache and double-index documentation (PRE-13)
 
 ## Progress
 
@@ -184,4 +194,4 @@ Plans:
 | 8. Search UX Enhancements | v1.1 | 1/1 | Complete | 2026-04-14 |
 | 9. Preprocessor foundation | v1.2 | 3/3 | Complete | 2026-04-15 |
 | 10. OCR providers | v1.2 | 2/2 | Complete    | 2026-04-20 |
-| 11. Vision enrichment & idempotency | v1.2 | 0/? | Planned | — |
+| 11. Vision enrichment & idempotency | v1.2 | 0/3 | Planned | — |
