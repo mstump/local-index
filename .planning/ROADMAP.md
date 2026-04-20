@@ -31,7 +31,7 @@
 ### v1.2 PDF & Image Preprocessor (SEED-001)
 
 - [x] **Phase 9: Preprocessor foundation** - Integrated `index`/`daemon` asset pipeline: PDF classification, local text + Claude vision for scans, standalone image descriptions, ephemeral cache under data dir, chunks attributed to source asset paths (PRE-01–PRE-06, PRE-13, PRE-14 subset; see `09-CONTEXT.md`) (completed 2026-04-15)
-- [ ] **Phase 10: OCR providers** - Rasterize scanned pages; Anthropic Messages OCR path; optional Google Document AI when configured (PRE-07, PRE-08)
+- [x] **Phase 10: OCR providers** - Rasterize scanned pages; Anthropic Messages OCR path; optional Google Document AI when configured (PRE-07, PRE-08) (completed 2026-04-20)
 - [ ] **Phase 11: Vision enrichment & idempotency** - Anthropic vision for images; full PDF reassembly and standalone images; blockquote format; hash-based skip (PRE-04, PRE-09–PRE-12, PRE-13 completion)
 
 ## Phase Details
@@ -183,5 +183,5 @@ Plans:
 | 7. Operational Logging | v1.1 | 1/1 | Complete    | 2026-04-14 |
 | 8. Search UX Enhancements | v1.1 | 1/1 | Complete | 2026-04-14 |
 | 9. Preprocessor foundation | v1.2 | 3/3 | Complete | 2026-04-15 |
-| 10. OCR providers | v1.2 | 2/2 | Ready to execute | — |
+| 10. OCR providers | v1.2 | 2/2 | Complete    | 2026-04-20 |
 | 11. Vision enrichment & idempotency | v1.2 | 0/? | Planned | — |
