@@ -1,6 +1,6 @@
 # local-index
 
-A Rust daemon that watches a directory tree (initially an Obsidian vault), chunks markdown files using smart size-based splitting, embeds each chunk via the Voyage AI API, and stores everything in an embedded LanceDB database. Exposes full-text and semantic search via CLI, a Claude Code skill interface, and a web dashboard — enabling Claude to reason over your notes without resorting to grep.
+A Rust daemon that turns a local knowledge base — markdown notes, PDFs, and images — into a queryable semantic index. It watches your vault for changes, extracts meaning from every file (embedding text with Voyage AI, describing images and OCR-ing scanned documents with Anthropic vision), and stores everything in an embedded LanceDB database. Expose the index as full-text + vector hybrid search via CLI, a Claude Code skill interface, and a web dashboard — so Claude can reason over your entire knowledge base, including scanned PDFs and image-heavy documents, without resorting to grep.
 
 ## Inspiration
 
@@ -18,13 +18,26 @@ Where local-index diverges: it uses **Voyage AI** for embeddings instead of loca
 flowchart TD
     FW["File Watcher (notify + debouncer)"]
 
-    subgraph Pipeline["Indexing Pipeline"]
+    subgraph MDPipeline["Markdown Pipeline"]
         direction LR
-        W["Walker (walkdir)"] --> C["Chunker (pulldown-cmark)"] --> E["Embedder (Voyage AI)"] --> CS[("ChunkStore (LanceDB)")]
+        W["Walker (.md files)"] --> C["Chunker (pulldown-cmark)"] --> E["Embedder (Voyage AI)"]
+    end
+
+    subgraph AssetPipeline["Asset Pipeline (PDFs · Images)"]
+        direction LR
+        AW["Asset Walker (.pdf .png .jpg …)"] --> CL["Classify PDF\nTextFirst · NeedsVision"]
+        CL -->|TextFirst| TF["Extract text (lopdf)\n+ describe embedded images\n(Anthropic vision + pdfium)"]
+        CL -->|NeedsVision / scanned| OCR["Rasterize pages\n→ OCR (Anthropic or\nGoogle Document AI)"]
+        AW --> IMG["Standalone images\n→ Anthropic vision description"]
+        TF & OCR & IMG --> CACHE["SHA-256 cache\nasset-cache/{shard}/{sha256}.txt"]
+        CACHE --> E2["Embedder (Voyage AI)"]
     end
 
     FW --> W
-    CS --> SE["SearchEngine semantic · FTS · hybrid (RRF + opt. Claude rerank)"]
+    FW --> AW
+    E --> CS[("ChunkStore (LanceDB)")]
+    E2 --> CS
+    CS --> SE["SearchEngine\nsemantic · FTS · hybrid (RRF)\n+ optional Claude rerank"]
     SE --> CLI["CLI (clap)"]
     SE --> HTTP["HTTP Server (axum + askama)"]
     HTTP --> WD["Web Dashboard"]
@@ -32,12 +45,42 @@ flowchart TD
     CCS["Claude Code Skills (.claude/skills/)"] -. invokes .-> CLI
 ```
 
-### Pipeline
+### Markdown Pipeline
 
 1. **Walker** — recursively discovers `.md` files, skipping hidden directories.
 2. **Chunker** — parses each file with `pulldown-cmark`, extracts YAML frontmatter, then splits the body into ~3600-character chunks using scored break points (headings, code fences, blank lines, HRs, list items). Each chunk carries a heading breadcrumb (`## Goals > ### Q1`) and line range metadata.
 3. **Embedder** — sends chunks to the Voyage AI API (`voyage-3.5`, 1024 dimensions) in batches of 50 with exponential backoff and jitter on transient failures.
 4. **ChunkStore** — writes chunks and embedding vectors into a single LanceDB `chunks` table with a 10-column Arrow schema. SHA-256 content hashes enable incremental re-indexing — unchanged files are skipped entirely.
+
+### Asset Pipeline (PDFs and Images)
+
+The asset pipeline runs in parallel with the markdown pipeline and handles `.pdf`, `.png`, `.jpg`, `.jpeg`, and `.webp` files. Each asset is processed into synthetic markdown, embedded with Voyage AI, and stored in LanceDB with `file_path` pointing at the original asset — never at a companion `.md` file.
+
+**PDF classification** — every PDF is classified before processing:
+
+| Class | Heuristic | Processing |
+|-------|-----------|------------|
+| **TextFirst** | ≥12 printable chars per page on average | Extract text per page with lopdf; extract and describe embedded raster figures with Anthropic vision + pdfium-render |
+| **NeedsVision** (scanned) | Below the text threshold | Rasterize each page to PNG, then OCR via Anthropic vision or Google Document AI |
+
+**Standalone images** — `.png`, `.jpg`, `.jpeg`, `.webp` files are described using Anthropic vision and stored as small markdown companions with a blockquote body.
+
+**Synthetic markdown format** — all image and OCR content uses a canonical blockquote convention so downstream search treats it uniformly:
+
+```markdown
+## Page 1
+
+Extracted text from the page…
+
+> **[Image: report_page_1_image_1.png]** A bar chart showing quarterly revenue broken down by region…
+
+---
+
+## Page 2
+…
+```
+
+**Idempotency** — every asset is keyed by the SHA-256 of its raw bytes. Results are cached to `<data_dir>/asset-cache/{shard}/{sha256}.txt`; subsequent runs skip the API entirely on unchanged files. See [Ephemeral asset cache](#ephemeral-asset-cache-and-idempotency) for details.
 
 ### Search
 
@@ -75,14 +118,27 @@ Single LanceDB table (`chunks`):
 
 ## Features
 
-- **Semantic search** — vector similarity via Voyage AI embeddings (voyage-3.5, 1024 dims)
-- **Full-text search** — BM25 via LanceDB's native FTS engine
-- **Hybrid search** — fuses BM25 + vector results via Reciprocal Rank Fusion (RRF), with optional Claude reranking when `ANTHROPIC_API_KEY` is set
-- **Smart chunking** — size-based splitting with scored break points, heading breadcrumbs, and code fence protection (inspired by [qmd](https://github.com/tobi/qmd))
-- **Incremental indexing** — SHA-256 content hashes skip unchanged files; model mismatch guard prevents mixed embeddings
-- **Daemon mode** — file watcher with debounced re-indexing on create/modify/rename/delete
-- **Web dashboard** — search UI, index browser, status overview, and settings view (axum + askama)
-- **Prometheus metrics** — `/metrics` endpoint with counters, gauges, and histograms for embedding latency, indexing throughput, search latency, and HTTP request duration
+### Semantic meaning extraction
+
+- **Voyage AI embeddings** — every chunk (markdown or extracted asset content) is embedded with `voyage-3.5` (1024 dims, cosine similarity) so queries match on meaning, not keywords
+- **Hybrid search** — BM25 full-text + vector ANN fused via Reciprocal Rank Fusion (RRF k=60); hybrid is the default and outperforms either alone on recall
+- **Claude reranking** — when `ANTHROPIC_API_KEY` is set, a second-stage Claude pass reorders the candidate pool via the Anthropic Messages API; disable per-query with `--no-rerank`
+- **Smart chunking** — size-based splitting with scored break points (headings, code fences, blank lines), heading breadcrumbs, and code fence protection; inspired by [qmd](https://github.com/tobi/qmd)
+
+### PDF and image OCR pipeline
+
+- **PDF classification** — every PDF is classified as TextFirst (native text extractable) or NeedsVision (scanned/image-heavy) before choosing a processing path
+- **TextFirst PDFs** — text extracted per-page with lopdf; embedded raster figures described per-image via Anthropic vision (pdfium-render); page text and image descriptions interleaved in output
+- **Scanned PDFs** — pages rasterized to PNG then OCR'd via Anthropic vision (default) or Google Document AI
+- **Standalone images** — `.png`, `.jpg`, `.jpeg`, `.webp` described via Anthropic vision
+- **Idempotent caching** — SHA-256 asset cache skips all API calls on re-runs when the source file is unchanged; no companion `.md` files written to the vault
+
+### Infrastructure
+
+- **Incremental indexing** — SHA-256 content hashes skip unchanged markdown files; model mismatch guard prevents mixed embeddings
+- **Daemon mode** — file watcher (notify + debouncer) with automatic re-indexing on create/modify/rename/delete for both markdown and assets
+- **Web dashboard** — search UI with reranking toggle and query-term highlighting, index browser, status overview, settings view (axum + askama)
+- **Prometheus metrics** — `/metrics` with HDR histograms for embedding latency, indexing throughput, search latency, and HTTP request duration
 - **Claude Code skills** — invoke search, reindex, and status directly from Claude Code via `.claude/skills/` files
 - **Single binary** — no runtime dependencies, no external database process, no Node/Python
 
@@ -90,11 +146,19 @@ Single LanceDB table (`chunks`):
 
 ```sh
 cargo install local-index
-export VOYAGE_API_KEY="your-key-here"
-# Optional: Claude reranks search results (hybrid and other modes)
+
+# Required: embeddings
+export VOYAGE_API_KEY="your-voyage-key"
+
+# Recommended: enables PDF/image OCR + vision, and optional Claude reranking
 export ANTHROPIC_API_KEY="your-anthropic-key"
+
 export OBSIDIAN_VAULT="/path/to/your/vault"
+
+# Index markdown, PDFs, and images
 local-index index "$OBSIDIAN_VAULT"
+
+# Search — hybrid (BM25 + vector + optional rerank) by default
 local-index search "your query"
 ```
 
@@ -154,15 +218,14 @@ indexed as if they were markdown. Combined with `file_path` attribution
 pointing at the original asset path, the same PDF never produces two
 sets of chunks.
 
-**TextFirst PDF embedded images (Phase 11):** Text-first PDFs now have
-their embedded raster figures extracted via `pdfium-render` and
-described through Anthropic vision. For each TextFirst page, the
-synthetic markdown contains the page text followed by a blockquote per
-figure using the filename convention
-`{stem}_page_{N}_image_{I}.png` (1-based page and image indices). Pages
-are separated by `\n\n---\n\n`. Scanned-PDF pages (NeedsVision) continue
-to be rasterized and OCR'd as before, with each page's OCR body wrapped
-in the same blockquote format using `{stem}_page_{N}.png`.
+**TextFirst PDF embedded images:** Text-first PDFs have their embedded
+raster figures extracted via `pdfium-render` and described through
+Anthropic vision. For each page the synthetic markdown contains the page
+text followed by one blockquote per figure using the naming convention
+`{stem}_page_{N}_image_{I}.png` (1-based indices). Pages are separated
+by `---`. Scanned-PDF pages (NeedsVision) are rasterized and OCR'd with
+each page's OCR body wrapped in the same blockquote format using
+`{stem}_page_{N}.png`.
 
 **Graceful degradation:**
 
@@ -194,7 +257,7 @@ flowchart TD
 
 ### OCR providers (scanned PDFs)
 
-Rasterized pages from **scanned** PDFs can be turned into text with either **Anthropic vision** (default) or **Google Document AI**. Standalone images (`png`, `jpg`, `jpeg`, `webp`) still use **Anthropic** vision when `ANTHROPIC_API_KEY` is set—change that in a later phase.
+Rasterized pages from **scanned** PDFs can be turned into text with either **Anthropic vision** (default) or **Google Document AI**. Standalone images (`png`, `jpg`, `jpeg`, `webp`) always use **Anthropic** vision.
 
 | Setting | Values |
 |---------|--------|
@@ -267,16 +330,23 @@ Start the web dashboard and metrics endpoint without file watching. Useful for r
 
 ## Environment Variables
 
-| Variable                   | Required               | Description                                                             |
-|----------------------------|------------------------|-------------------------------------------------------------------------|
-| `VOYAGE_API_KEY`           | Yes (for index/search) | Voyage AI API key for embeddings                                        |
-| `ANTHROPIC_API_KEY`        | No                     | Anthropic API key; when set, enables Claude search reranking            |
-| `LOCAL_INDEX_RERANK_MODEL` | No                     | Anthropic model id for reranking (default: `claude-3-5-haiku-20241022`) |
-| `LOCAL_INDEX_DATA_DIR`     | No                     | Override default data directory                                         |
-| `LOCAL_INDEX_BIND`         | No                     | HTTP bind address (default: `127.0.0.1:3000`)                           |
-| `LOCAL_INDEX_LOG_LEVEL`    | No                     | Log level (default: `info`)                                             |
-| `OBSIDIAN_VAULT`           | Conventional           | Vault path used by Claude Code reindex skill                            |
-| `LOCAL_INDEX_VAULT`        | Conventional           | Alternative vault path for Claude Code skill                            |
+| Variable                            | Required                          | Description |
+|-------------------------------------|-----------------------------------|-------------|
+| `VOYAGE_API_KEY`                    | Yes (index/search)                | Voyage AI API key for embeddings |
+| `ANTHROPIC_API_KEY`                 | Yes (vision/OCR); No (markdown only) | Enables PDF OCR, image vision, and optional Claude search reranking |
+| `LOCAL_INDEX_RERANK_MODEL`          | No                                | Anthropic model for reranking (default: `claude-3-5-haiku-20241022`) |
+| `LOCAL_INDEX_DATA_DIR`              | No                                | Override default data directory (LanceDB + asset cache) |
+| `LOCAL_INDEX_BIND`                  | No                                | HTTP bind address (default: `127.0.0.1:3000`) |
+| `LOCAL_INDEX_LOG_LEVEL`             | No                                | Log level (default: `info`) |
+| `LOCAL_INDEX_SKIP_ASSET_PROCESSING` | No                                | Set to `1` to disable PDF/image pipeline and index markdown only |
+| `LOCAL_INDEX_MAX_PDF_PAGES`         | No                                | Max pages rasterized per PDF via vision/OCR (default: `30`) |
+| `LOCAL_INDEX_OCR_PROVIDER`          | No                                | OCR backend for scanned PDFs: `anthropic` (default) or `google` |
+| `GOOGLE_APPLICATION_CREDENTIALS`    | Only with `OCR_PROVIDER=google`   | Path to GCP service account JSON for Google Document AI |
+| `GOOGLE_CLOUD_PROJECT`              | Only with `OCR_PROVIDER=google`   | GCP project id |
+| `GOOGLE_DOCUMENT_AI_LOCATION`       | Only with `OCR_PROVIDER=google`   | Document AI processor region (e.g. `us`) |
+| `GOOGLE_DOCUMENT_AI_PROCESSOR_ID`   | Only with `OCR_PROVIDER=google`   | Document AI processor id |
+| `OBSIDIAN_VAULT`                    | Conventional                      | Vault path used by Claude Code reindex skill |
+| `LOCAL_INDEX_VAULT`                 | Conventional                      | Alternative vault path for Claude Code skill |
 
 ## Claude Code Integration
 
