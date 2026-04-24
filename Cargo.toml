@@ -96,7 +96,7 @@ lopdf = "0.38"
 pdfium-render = "0.8.37"
 base64 = "0.22"
 image = { version = "=0.25.4", default-features = false, features = ["png"] }
-jsonwebtoken = { version = "9", features = ["use_pem"] }
+jsonwebtoken = { version = "10", features = ["use_pem"] }
 
 [dev-dependencies]
 wiremock = "0.6"
